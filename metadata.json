@@ -1,0 +1,6 @@
+{
+  "name": "Focus Study Environment",
+  "description": "An immersive digital study space with a custom Pomodoro timer, background YouTube lo-fi stream, and mixed ambient sounds.",
+  "requestFramePermissions": ["camera", "display-capture"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
