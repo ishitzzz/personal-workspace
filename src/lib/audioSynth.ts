@@ -24,6 +24,7 @@ export class ZenAudioSynth {
   private rainSource: AudioBufferSourceNode | null = null;
   private rainGain: GainNode | null = null;
   private rainLfo: OscillatorNode | null = null;
+  private rainLfoGain: GainNode | null = null;
 
   private fireRumbleSource: AudioBufferSourceNode | null = null;
   private fireRumbleGain: GainNode | null = null;
@@ -33,6 +34,13 @@ export class ZenAudioSynth {
   private cafeHumSource: AudioBufferSourceNode | null = null;
   private cafeHumGain: GainNode | null = null;
   private cafeClinkerTimer: any = null;
+
+  // Active Connection States for noise loops
+  private connectedStates: { [key: string]: boolean } = {
+    rain: true,
+    fireplace: true,
+    cafe: true,
+  };
 
   // Current Target Volumes (0.0 to 1.0)
   private volumes: { [key: string]: number } = {
@@ -112,12 +120,12 @@ export class ZenAudioSynth {
       this.rainLfo.type = 'sine';
       this.rainLfo.frequency.value = 0.08; // 8 seconds per wave
 
-      const lfoGain = this.ctx.createGain();
-      lfoGain.gain.value = 0.15; // 15% amplitude change
+      this.rainLfoGain = this.ctx.createGain();
+      this.rainLfoGain.gain.setValueAtTime(0, this.ctx.currentTime); // LFO scaling starts at 0
 
       // Connect LFO to rain volume envelope
-      this.rainLfo.connect(lfoGain);
-      lfoGain.connect(this.rainGain.gain);
+      this.rainLfo.connect(this.rainLfoGain);
+      this.rainLfoGain.connect(this.rainGain.gain);
 
       // Map Nodes chain
       this.rainSource.connect(lp);
@@ -337,25 +345,114 @@ export class ZenAudioSynth {
     this.initContext();
     if (!this.ctx) return;
 
-    // Resures audio context if browser suspended it
+    const value0to1 = Math.max(0, Math.min(100, vol0to100)) / 100;
+    this.volumes[id] = value0to1;
+
+    // Resumes audio context if browser suspended it and sound is activated
     if (vol0to100 > 0 && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
-
-    const value0to1 = Math.max(0, Math.min(100, vol0to100)) / 100;
-    this.volumes[id] = value0to1;
 
     const fadeTime = 0.15; // smooth fading to prevent sudden popping clicks
     const now = this.ctx.currentTime;
 
     if (id === 'rain' && this.rainGain) {
-      this.rainGain.gain.linearRampToValueAtTime(value0to1, now + fadeTime);
+      if (value0to1 > 0) {
+        if (!this.connectedStates['rain'] && this.masterGain) {
+          try {
+            this.rainGain.disconnect();
+          } catch (e) {}
+          this.rainGain.connect(this.masterGain);
+          this.connectedStates['rain'] = true;
+        }
+        this.rainGain.gain.setValueAtTime(this.rainGain.gain.value, now);
+        this.rainGain.gain.linearRampToValueAtTime(value0to1, now + fadeTime);
+        if (this.rainLfoGain) {
+          this.rainLfoGain.gain.setValueAtTime(this.rainLfoGain.gain.value, now);
+          this.rainLfoGain.gain.linearRampToValueAtTime(value0to1 * 0.15, now + fadeTime);
+        }
+      } else {
+        this.rainGain.gain.setValueAtTime(this.rainGain.gain.value, now);
+        this.rainGain.gain.linearRampToValueAtTime(0, now + fadeTime);
+        if (this.rainLfoGain) {
+          this.rainLfoGain.gain.setValueAtTime(this.rainLfoGain.gain.value, now);
+          this.rainLfoGain.gain.linearRampToValueAtTime(0, now + fadeTime);
+        }
+        setTimeout(() => {
+          if (this.volumes['rain'] === 0 && this.rainGain && this.connectedStates['rain']) {
+            try {
+              this.rainGain.disconnect();
+            } catch (e) {}
+            this.connectedStates['rain'] = false;
+          }
+        }, 200);
+      }
     } else if (id === 'fireplace' && this.fireRumbleGain) {
-      // Fire is rumbler + timer crackling (intensity driven by volume array)
-      this.fireRumbleGain.gain.linearRampToValueAtTime(value0to1 * 0.6, now + fadeTime);
+      if (value0to1 > 0) {
+        if (!this.connectedStates['fireplace'] && this.masterGain) {
+          try {
+            this.fireRumbleGain.disconnect();
+          } catch (e) {}
+          this.fireRumbleGain.connect(this.masterGain);
+          this.connectedStates['fireplace'] = true;
+        }
+        this.fireRumbleGain.gain.setValueAtTime(this.fireRumbleGain.gain.value, now);
+        this.fireRumbleGain.gain.linearRampToValueAtTime(value0to1 * 0.6, now + fadeTime);
+      } else {
+        this.fireRumbleGain.gain.setValueAtTime(this.fireRumbleGain.gain.value, now);
+        this.fireRumbleGain.gain.linearRampToValueAtTime(0, now + fadeTime);
+        setTimeout(() => {
+          if (this.volumes['fireplace'] === 0 && this.fireRumbleGain && this.connectedStates['fireplace']) {
+            try {
+              this.fireRumbleGain.disconnect();
+            } catch (e) {}
+            this.connectedStates['fireplace'] = false;
+          }
+        }, 200);
+      }
     } else if (id === 'cafe' && this.cafeHumGain) {
-      // Cafe is conversational hubbub + periodic clinker trigger
-      this.cafeHumGain.gain.linearRampToValueAtTime(value0to1 * 0.4, now + fadeTime);
+      if (value0to1 > 0) {
+        if (!this.connectedStates['cafe'] && this.masterGain) {
+          try {
+            this.cafeHumGain.disconnect();
+          } catch (e) {}
+          this.cafeHumGain.connect(this.masterGain);
+          this.connectedStates['cafe'] = true;
+        }
+        this.cafeHumGain.gain.setValueAtTime(this.cafeHumGain.gain.value, now);
+        this.cafeHumGain.gain.linearRampToValueAtTime(value0to1 * 0.4, now + fadeTime);
+      } else {
+        this.cafeHumGain.gain.setValueAtTime(this.cafeHumGain.gain.value, now);
+        this.cafeHumGain.gain.linearRampToValueAtTime(0, now + fadeTime);
+        setTimeout(() => {
+          if (this.volumes['cafe'] === 0 && this.cafeHumGain && this.connectedStates['cafe']) {
+            try {
+              this.cafeHumGain.disconnect();
+            } catch (e) {}
+            this.connectedStates['cafe'] = false;
+          }
+        }, 200);
+      }
+    }
+
+    // Dual-protect: Mute the main master output completely if all target volumes are 0
+    const hasAnyActiveSound = Object.values(this.volumes).some(v => v > 0);
+    if (this.masterGain) {
+      this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
+      if (!hasAnyActiveSound) {
+        this.masterGain.gain.linearRampToValueAtTime(0, now + fadeTime);
+        // Force strict hardware silence
+        setTimeout(() => {
+          if (this.masterGain && !Object.values(this.volumes).some(v => v > 0)) {
+            this.masterGain.gain.value = 0;
+            if (this.ctx && this.ctx.state !== 'suspended') {
+              this.ctx.suspend().catch(() => {});
+            }
+          }
+        }, 180);
+      } else {
+        this.masterGain.gain.linearRampToValueAtTime(0.75, now + fadeTime);
+      }
     }
   }
 

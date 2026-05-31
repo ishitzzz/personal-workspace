@@ -509,10 +509,9 @@ export default function App() {
           audioElementsRef.current[snd.id] = item;
         }
         
-        // Update volume smoothly
-        item.volume = vol / 100;
-        
         if (vol > 0) {
+          item.muted = false;
+          item.volume = vol / 100;
           if (item.paused && !playPromisesRef.current[snd.id]) {
             const playPromise = item.play();
             playPromisesRef.current[snd.id] = playPromise;
@@ -528,17 +527,19 @@ export default function App() {
               });
           }
         } else {
+          item.muted = true;
+          item.volume = 0;
           const activePromise = playPromisesRef.current[snd.id];
           if (activePromise) {
             activePromise
               .then(() => {
-                if (!item.paused) item.pause();
+                item.pause();
               })
               .catch(() => {
-                if (!item.paused) item.pause();
+                item.pause();
               });
           } else {
-            if (!item.paused) item.pause();
+            item.pause();
           }
         }
       });
