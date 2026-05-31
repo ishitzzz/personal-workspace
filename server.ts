@@ -101,9 +101,10 @@ const ai = geminiApiKey
     })
   : null;
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+const app = express();
+
+// Set default port if needed
+const PORT = 3000;
 
   // Increase body size limits to comfortably receive base64 frame snapshots
   app.use(express.json({ limit: '10mb' }));
@@ -439,26 +440,31 @@ Provide direct, short, cozy feedback under 3 lines. Be incredibly mindful and bl
   });
 
   // Hot module reloading with Vite middlewares in development
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    // Standard static serving for compiled dist/ folder in Cloud Run / Production Env
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+  async function startLocalServer() {
+    if (process.env.NODE_ENV !== 'production') {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      // Standard static serving for compiled dist/ folder in Cloud Run / Production Env
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
+
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`[Focus Server] Full-stack engine launched at http://localhost:${PORT}`);
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Focus Server] Full-stack engine launched at http://localhost:${PORT}`);
-  });
-}
+  if (!process.env.VERCEL) {
+    startLocalServer().catch((err) => {
+      console.error('[Focus Server] Boot error:', err);
+    });
+  }
 
-startServer().catch((err) => {
-  console.error('[Focus Server] Boot error:', err);
-});
+export default app;
