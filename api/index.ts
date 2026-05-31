@@ -2,7 +2,6 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 
 dotenv.config();
@@ -452,6 +451,7 @@ Provide direct, short, cozy feedback under 3 lines. Be incredibly mindful and bl
   // Hot module reloading with Vite middlewares in development
   async function startLocalServer() {
     if (process.env.NODE_ENV !== 'production') {
+      const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
