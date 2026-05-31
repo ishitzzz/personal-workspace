@@ -29,8 +29,30 @@ if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify({ users: {} }, null, 2));
 }
 
-// Read database helper
-function readDB() {
+// Read database helper (Asynchronous, supporting Vercel KV and Upstash Redis cloud fallback)
+async function getDB() {
+  const kvUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+  if (kvUrl && kvToken) {
+    try {
+      const response = await fetch(kvUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${kvToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(['GET', 'student_workspace_db'])
+      });
+      const data = await response.json();
+      if (data && data.result) {
+        return typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+      }
+    } catch (err) {
+      console.error('[Cloud DB Error] Failed to fetch from Upstash/Vercel KV REST API:', err);
+    }
+  }
+
   try {
     const data = fs.readFileSync(DB_FILE, 'utf8');
     return JSON.parse(data);
@@ -39,12 +61,30 @@ function readDB() {
   }
 }
 
-// Write database helper
-function writeDB(data: any) {
+// Write database helper (Asynchronous, supporting Vercel KV and Upstash Redis cloud fallback)
+async function saveDB(dbData: any) {
+  const kvUrl = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const kvToken = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+  if (kvUrl && kvToken) {
+    try {
+      await fetch(kvUrl, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${kvToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(['SET', 'student_workspace_db', JSON.stringify(dbData)])
+      });
+    } catch (err) {
+      console.error('[Cloud DB Error] Failed to update Upstash/Vercel KV REST API:', err);
+    }
+  }
+
   try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+    fs.writeFileSync(DB_FILE, JSON.stringify(dbData, null, 2), 'utf8');
   } catch (err) {
-    console.error('Failed to write database file:', err);
+    // Fail silently in read-only environments
   }
 }
 
@@ -80,14 +120,14 @@ async function startServer() {
   });
 
   // Simple Authenticated Username/Password registration
-  app.post('/api/auth/register', (req, res) => {
+  app.post('/api/auth/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'Username and password credentials are required' });
     }
 
     const cleanUsername = username.trim().toLowerCase();
-    const db = readDB();
+    const db = await getDB();
 
     if (db.users[cleanUsername]) {
       return res.status(409).json({ error: 'Username is already registered.' });
@@ -117,7 +157,7 @@ async function startServer() {
       state: defaultState
     };
 
-    writeDB(db);
+    await saveDB(db);
     res.json({
       username: username.trim(),
       joinedAt: db.users[cleanUsername].joinedAt,
@@ -126,14 +166,14 @@ async function startServer() {
   });
 
   // Username/Password Login
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
       return res.status(400).json({ error: 'All login credentials are required' });
     }
 
     const cleanUsername = username.trim().toLowerCase();
-    const db = readDB();
+    const db = await getDB();
     const user = db.users[cleanUsername];
 
     if (!user || user.password !== password) {
@@ -148,14 +188,14 @@ async function startServer() {
   });
 
   // Sync state operations (Get or Save)
-  app.post('/api/sync/get', (req, res) => {
+  app.post('/api/sync/get', async (req, res) => {
     const { username } = req.body;
     if (!username) {
       return res.status(400).json({ error: 'Missing username parameter' });
     }
 
     const cleanUsername = username.trim().toLowerCase();
-    const db = readDB();
+    const db = await getDB();
     const user = db.users[cleanUsername];
 
     if (!user) {
@@ -165,14 +205,14 @@ async function startServer() {
     res.json({ state: user.state });
   });
 
-  app.post('/api/sync/save', (req, res) => {
+  app.post('/api/sync/save', async (req, res) => {
     const { username, state } = req.body;
     if (!username || !state) {
       return res.status(400).json({ error: 'Username and state payload required' });
     }
 
     const cleanUsername = username.trim().toLowerCase();
-    const db = readDB();
+    const db = await getDB();
     const user = db.users[cleanUsername];
 
     if (!user) {
@@ -185,7 +225,7 @@ async function startServer() {
       ...state
     };
 
-    writeDB(db);
+    await saveDB(db);
     res.json({ success: true, savedAt: new Date().toISOString(), state: user.state });
   });
 
