@@ -191,85 +191,110 @@ export default function App() {
   });
 
   const [channels, setChannels] = useState<StudyChannel[]>(() => {
+    const defaultChannelsList: StudyChannel[] = [
+      {
+        id: "custom-1780367919151",
+        name: "kkoh",
+        videoIds: [
+          "YA4WApWMg5g", "LVWhS8_MW8M", "Q-le7kz7Uzc", "BenWCKFdONk", "EXB5BMzOmPI",
+          "QFE_Up4J2u8", "lm1ERWXtTHg", "nglhwwwPv6U", "vuRiWFb8ZAg", "eV2KQPG8XeA",
+          "wRWfhuo-c9A", "0ynCD9J-ZAs", "ky0v2xf_R4I", "MdewiPIldJA", "fDG5s-ETdjk",
+          "PrHIPfvtMYY", "C2Z8M-1OzeE", "RJ5XPMV-xZc", "8tC78EVHlG0", "UvVeVSo4epg",
+          "urZdBE-15o8", "N-nT00eFyoI", "nUpAzrSYTU0", "5bj0xSWlbew", "nE3K5pGXrNc",
+          "YdiSDbxbun0", "NzasiL0QE28", "kTav5DadwyM", "FXByyFLKgR8", "pQssJjPYYm8"
+        ],
+        assignedNode: null
+      },
+      {
+        id: "custom-1780368076658",
+        name: "STUDY SOCIETY",
+        videoIds: [
+          "qnqjIdMmUN4", "VWTQM6fQ_p0", "v9fxE5XsDJs", "FcNXIYDyO2Q", "6bYRGBU8TJ4",
+          "T0HP_gBrjCU", "2k4wtb6_TAY", "FaY9Avl_nuc", "MJvdm4ebS5g"
+        ],
+        assignedNode: 6
+      },
+      {
+        id: "custom-1780368114452",
+        name: "Emily Ann Edit",
+        videoIds: [
+          "yTI5B-gFJc0", "ly66BBahttc", "38NTU1SotAc", "M_X5IZ6GcTc", "2wdfXH9qdi8",
+          "X39Z1U93Cns", "r3tSqz0a-zI", "3HgXDcXZ3JQ", "AVaJUh9CDws", "xoq5CKt_3O0",
+          "rsi-Hv-vsI4", "Ou2pRs6ruYY", "-R84AzZJZ4k", "3LdsCoNq5gg", "hyFWx3MMkJs",
+          "mL472gTHQwI", "9GaaznbPGGU", "PKXKh8PbJ7Q", "TGeSaTG4xbQ", "EfqD4ievp6c",
+          "-6Rg-z4fphU", "OiuRMvhkKKw", "AlADoe_-2Ys", "crzUV5rkWTI", "bMp3L2186mk",
+          "haRKOe-PNAw", "mNvbv5PSUuU", "kN7WPKnezU4", "OT6xJpnEWRY", "3Mtz9N_y1ik"
+        ],
+        assignedNode: null
+      },
+      {
+        id: "custom-1780368138226",
+        name: "Per Studium",
+        videoIds: [
+          "yI-vwnodsW8", "8u6j_fBkM_w", "sUl4r-AC6Vc", "deCpXINi9rQ", "nhyAD9XkVbc",
+          "yfUXNpKKyIs", "648vG2ylCcQ", "NRHfrGgmO-o", "yyUAt8aAyy4", "M4mC_3K6lz0",
+          "sjgI7VfAteY", "tqZNKgz27Fk", "CZs_-S-PAdw", "kr2f5mL9t2k", "1fc-2LJ9eYM",
+          "KOG7IV1CYDs", "xUApEiXgFjU", "0QX6haTRqHo", "dXM9_iYENgk", "qAldvvzFCZc",
+          "FfSx4UYeBZc", "t3EHW0Tt2Rk", "w5ICWa1PJRQ", "LHlyIBWdx0g", "jlG539DPTtQ",
+          "ZiyMfBvzmN4", "53cDj5ldbSs", "3IAZ-9CqWI4", "PFgG3dG_PSE", "3sEo2FlA9kE"
+        ],
+        assignedNode: 1
+      },
+      {
+        id: "custom-1780368159566",
+        name: "Akira Studies",
+        videoIds: [
+          "eSB-PwkF0Pg", "3q3b2DJeKAc", "sC2-ZzhT-3I", "2DESAQvmctM", "gR4g6jtpYoQ",
+          "ELcsLvxJY2w", "tvznoDmDWBY", "uKgTk8c5jUQ", "qTKewlWvtQM", "Ksd-mDI4_xg",
+          "Lgko-c9wxIE", "J_0jBEgsJhg", "HSeavbzfCl0", "Osi49IsfHD0", "U0WrNxt6YN0",
+          "GyZ1w_QdYD0", "OJX6c0gRYFU", "E7_0DfLL7go", "80XR89fomXo", "oqewXcUl3QY",
+          "aPFwtuJnR54", "ENrOBAZn6Y8", "XMWiqbgTDvg", "m_y7985OlvE", "Fu-kY3JnA0k",
+          "_IfH5TpSEyU", "ANKSUtkDsCw", "HqkEh61xPy4", "DJc8vc6NWKs", "WG3ZAv1Xcwo"
+        ],
+        assignedNode: 5
+      },
+      {
+        id: "custom-1780368214019",
+        name: "focus",
+        videoIds: [
+          "5jpfTtlgnTQ", "W6aparAWkcM", "CTmDTWkVIwc", "xqQMCQjzt2A", "poTDTMzV7VE",
+          "HLOH_EPH_iI", "Z5NVpZ3spew", "kk9yq8ItBg8", "Q-JgSQyQ4H4", "OEdJ5SjX354",
+          "mWQmfJN5Ixs", "5CU_JcFR0T0"
+        ],
+        assignedNode: 4
+      },
+      {
+        id: "custom-1780368699184",
+        name: "James Scholz",
+        videoIds: [
+          "7kgm_k00aqU", "OH4jci9hIew", "uuk0FbpOO7E", "XRd85K2Tfm8", "ZzBXzt71wyY",
+          "GpGpX8I7kHs", "KjDFQWXIPXQ", "lfQQRMAwEHI", "Zze7QPPGSNA", "DiXZCboAD08",
+          "xJudZttWuEY", "Em8Y23I4AUM", "P0qQGvJoK68", "pt0UQm8361A", "cEKYyGOm5m8",
+          "V6vZLCaFCoM", "dhfM2b6eIRM", "1jKwCWb3anc", "nIfWhssPDw8", "c9s5jibiPdo",
+          "Nb8en_Mes4s", "XCdmnqEKtl8", "doDZQIbv97U", "hzYtZrQxhW4", "YfW73eQauso",
+          "I-IvCF7CD0A", "qkdUGC-izus", "_WADF7q5o-4", "v8Rb3LdGPnw", "R0d6dZWp8GQ"
+        ],
+        assignedNode: 3
+      }
+    ];
+
     try {
       const saved = localStorage.getItem('aesthetic-room:channels');
-      return saved ? JSON.parse(saved) : [
-        {
-          id: 'lofi-girl',
-          name: 'Lofi Girl Live',
-          videoIds: ['jfKfPfyJRdk', '4xDzrIxZZZI', 'D7B0G8yF-E8', 'nH_G_mH7Fsw'],
-          assignedNode: 1
-        },
-        {
-          id: 'abao-study',
-          name: 'Abao Study Room',
-          videoIds: ['83DId9I1v6s', 'V3rD_p_eIjg', '5wREv76k6vY'],
-          assignedNode: 2
-        },
-        {
-          id: 'chillhop-records',
-          name: 'Chillhop Lounge',
-          videoIds: ['5wREv76k6vY', 'L_LUpnjgPso'],
-          assignedNode: 3
-        },
-        {
-          id: 'coffee-shop-vibes',
-          name: 'Cozy Espresso Cafe',
-          videoIds: ['D7B0G8yF-E8', 'V3rD_p_eIjg', '83DId9I1v6s'],
-          assignedNode: 4
-        },
-        {
-          id: 'tokyo-night-walk',
-          name: 'Tokyo Rain Streets',
-          videoIds: ['83DId9I1v6s', 'D7B0G8yF-E8'],
-          assignedNode: 5
-        },
-        {
-          id: 'warm-fireplace-cabin',
-          name: 'Fireplace Library Night',
-          videoIds: ['L_LUpnjgPso', '4xDzrIxZZZI'],
-          assignedNode: 6
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const hasOldPresets = parsed.some((c: any) => 
+          ['lofi-girl', 'abao-study', 'chillhop-records', 'coffee-shop-vibes', 'tokyo-night-walk', 'warm-fireplace-cabin'].includes(c.id)
+        );
+        if (hasOldPresets) {
+          // Permanently overwrite/update localStorage to ensure old presets are clean
+          localStorage.setItem('aesthetic-room:channels', JSON.stringify(defaultChannelsList));
+          return defaultChannelsList;
         }
-      ];
+        return parsed;
+      }
+      return defaultChannelsList;
     } catch {
-      return [
-        {
-          id: 'lofi-girl',
-          name: 'Lofi Girl Live',
-          videoIds: ['jfKfPfyJRdk', '4xDzrIxZZZI', 'D7B0G8yF-E8', 'nH_G_mH7Fsw'],
-          assignedNode: 1
-        },
-        {
-          id: 'abao-study',
-          name: 'Abao Study Room',
-          videoIds: ['83DId9I1v6s', 'V3rD_p_eIjg', '5wREv76k6vY'],
-          assignedNode: 2
-        },
-        {
-          id: 'chillhop-records',
-          name: 'Chillhop Lounge',
-          videoIds: ['5wREv76k6vY', 'L_LUpnjgPso'],
-          assignedNode: 3
-        },
-        {
-          id: 'coffee-shop-vibes',
-          name: 'Cozy Espresso Cafe',
-          videoIds: ['D7B0G8yF-E8', 'V3rD_p_eIjg', '83DId9I1v6s'],
-          assignedNode: 4
-        },
-        {
-          id: 'tokyo-night-walk',
-          name: 'Tokyo Rain Streets',
-          videoIds: ['83DId9I1v6s', 'D7B0G8yF-E8'],
-          assignedNode: 5
-        },
-        {
-          id: 'warm-fireplace-cabin',
-          name: 'Fireplace Library Night',
-          videoIds: ['L_LUpnjgPso', '4xDzrIxZZZI'],
-          assignedNode: 6
-        }
-      ];
+      return defaultChannelsList;
     }
   });
 
@@ -410,6 +435,16 @@ export default function App() {
       return [
         { role: 'assistant', content: 'Greeting student. I am your Zen Study Assistant on Groq. Ask any question, track hydration limits, or ask me when to stretch!' }
       ];
+    }
+  });
+
+  // Saved companion study buddy chat history (Llama)
+  const [buddyHistory, setBuddyHistory] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('zen-buddy:conversation-history');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
     }
   });
 
@@ -567,6 +602,13 @@ export default function App() {
       syncWorkspaceDataSave({ channels });
     }
   }, [channels, user]);
+
+  useEffect(() => {
+    localStorage.setItem('zen-buddy:conversation-history', JSON.stringify(buddyHistory));
+    if (user) {
+      syncWorkspaceDataSave({ buddyHistory });
+    }
+  }, [buddyHistory, user]);
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:notepad-text', notepadText);
@@ -964,6 +1006,7 @@ export default function App() {
             if (data.state.studyPlans !== undefined) setStudyPlans(data.state.studyPlans);
             if (data.state.reminders !== undefined) setReminders(data.state.reminders);
             if (data.state.channels !== undefined) setChannels(data.state.channels);
+            if (data.state.buddyHistory !== undefined) setBuddyHistory(data.state.buddyHistory);
           }
         }
       } catch (err) {
@@ -1018,6 +1061,7 @@ export default function App() {
         setStudyPlans(data.state.studyPlans || []);
         setReminders(data.state.reminders || []);
         setChannels(data.state.channels || []);
+        setBuddyHistory(data.state.buddyHistory || []);
       }
 
       setAuthMode('none');
@@ -1053,6 +1097,9 @@ export default function App() {
       ]);
       localStorage.removeItem('aesthetic-room:chat-history');
 
+      setBuddyHistory([]);
+      localStorage.removeItem('zen-buddy:conversation-history');
+ 
       syncWorkspaceDataSave({
         goals: cleanGoals,
         deadlines: cleanDeadlines,
@@ -1060,7 +1107,8 @@ export default function App() {
         sessionLogs: cleanLogs,
         chatMessages: [
           { role: 'assistant', content: 'Greeting student. I am your Zen Study Assistant on Groq. Ask any question!' }
-        ]
+        ],
+        buddyHistory: []
       });
       triggerToast("Mock statistics and progress items wiped successfully!");
     }
@@ -1990,43 +2038,92 @@ export default function App() {
                       onClick={() => {
                         const defaults = [
                           {
-                            id: 'lofi-girl',
-                            name: 'Lofi Girl Live',
-                            videoIds: ['jfKfPfyJRdk', '4xDzrIxZZZI', 'D7B0G8yF-E8', 'nH_G_mH7Fsw'],
+                            id: "custom-1780367919151",
+                            name: "kkoh",
+                            videoIds: [
+                              "YA4WApWMg5g", "LVWhS8_MW8M", "Q-le7kz7Uzc", "BenWCKFdONk", "EXB5BMzOmPI",
+                              "QFE_Up4J2u8", "lm1ERWXtTHg", "nglhwwwPv6U", "vuRiWFb8ZAg", "eV2KQPG8XeA",
+                              "wRWfhuo-c9A", "0ynCD9J-ZAs", "ky0v2xf_R4I", "MdewiPIldJA", "fDG5s-ETdjk",
+                              "PrHIPfvtMYY", "C2Z8M-1OzeE", "RJ5XPMV-xZc", "8tC78EVHlG0", "UvVeVSo4epg",
+                              "urZdBE-15o8", "N-nT00eFyoI", "nUpAzrSYTU0", "5bj0xSWlbew", "nE3K5pGXrNc",
+                              "YdiSDbxbun0", "NzasiL0QE28", "kTav5DadwyM", "FXByyFLKgR8", "pQssJjPYYm8"
+                            ],
+                            assignedNode: null
+                          },
+                          {
+                            id: "custom-1780368076658",
+                            name: "STUDY SOCIETY",
+                            videoIds: [
+                              "qnqjIdMmUN4", "VWTQM6fQ_p0", "v9fxE5XsDJs", "FcNXIYDyO2Q", "6bYRGBU8TJ4",
+                              "T0HP_gBrjCU", "2k4wtb6_TAY", "FaY9Avl_nuc", "MJvdm4ebS5g"
+                            ],
+                            assignedNode: 6
+                          },
+                          {
+                            id: "custom-1780368114452",
+                            name: "Emily Ann Edit",
+                            videoIds: [
+                              "yTI5B-gFJc0", "ly66BBahttc", "38NTU1SotAc", "M_X5IZ6GcTc", "2wdfXH9qdi8",
+                              "X39Z1U93Cns", "r3tSqz0a-zI", "3HgXDcXZ3JQ", "AVaJUh9CDws", "xoq5CKt_3O0",
+                              "rsi-Hv-vsI4", "Ou2pRs6ruYY", "-R84AzZJZ4k", "3LdsCoNq5gg", "hyFWx3MMkJs",
+                              "mL472gTHQwI", "9GaaznbPGGU", "PKXKh8PbJ7Q", "TGeSaTG4xbQ", "EfqD4ievp6c",
+                              "-6Rg-z4fphU", "OiuRMvhkKKw", "AlADoe_-2Ys", "crzUV5rkWTI", "bMp3L2186mk",
+                              "haRKOe-PNAw", "mNvbv5PSUuU", "kN7WPKnezU4", "OT6xJpnEWRY", "3Mtz9N_y1ik"
+                            ],
+                            assignedNode: null
+                          },
+                          {
+                            id: "custom-1780368138226",
+                            name: "Per Studium",
+                            videoIds: [
+                              "yI-vwnodsW8", "8u6j_fBkM_w", "sUl4r-AC6Vc", "deCpXINi9rQ", "nhyAD9XkVbc",
+                              "yfUXNpKKyIs", "648vG2ylCcQ", "NRHfrGgmO-o", "yyUAt8aAyy4", "M4mC_3K6lz0",
+                              "sjgI7VfAteY", "tqZNKgz27Fk", "CZs_-S-PAdw", "kr2f5mL9t2k", "1fc-2LJ9eYM",
+                              "KOG7IV1CYDs", "xUApEiXgFjU", "0QX6haTRqHo", "dXM9_iYENgk", "qAldvvzFCZc",
+                              "FfSx4UYeBZc", "t3EHW0Tt2Rk", "w5ICWa1PJRQ", "LHlyIBWdx0g", "jlG539DPTtQ",
+                              "ZiyMfBvzmN4", "53cDj5ldbSs", "3IAZ-9CqWI4", "PFgG3dG_PSE", "3sEo2FlA9kE"
+                            ],
                             assignedNode: 1
                           },
                           {
-                            id: 'abao-study',
-                            name: 'Abao Study Room',
-                            videoIds: ['83DId9I1v6s', 'V3rD_p_eIjg', '5wREv76k6vY'],
-                            assignedNode: 2
-                          },
-                          {
-                            id: 'chillhop-records',
-                            name: 'Chillhop Lounge',
-                            videoIds: ['5wREv76k6vY', 'L_LUpnjgPso'],
-                            assignedNode: 3
-                          },
-                          {
-                            id: 'coffee-shop-vibes',
-                            name: 'Cozy Espresso Cafe',
-                            videoIds: ['D7B0G8yF-E8', 'V3rD_p_eIjg', '83DId9I1v6s'],
-                            assignedNode: 4
-                          },
-                          {
-                            id: 'tokyo-night-walk',
-                            name: 'Tokyo Rain Streets',
-                            videoIds: ['83DId9I1v6s', 'D7B0G8yF-E8'],
+                            id: "custom-1780368159566",
+                            name: "Akira Studies",
+                            videoIds: [
+                              "eSB-PwkF0Pg", "3q3b2DJeKAc", "sC2-ZzhT-3I", "2DESAQvmctM", "gR4g6jtpYoQ",
+                              "ELcsLvxJY2w", "tvznoDmDWBY", "uKgTk8c5jUQ", "qTKewlWvtQM", "Ksd-mDI4_xg",
+                              "Lgko-c9wxIE", "J_0jBEgsJhg", "HSeavbzfCl0", "Osi49IsfHD0", "U0WrNxt6YN0",
+                              "GyZ1w_QdYD0", "OJX6c0gRYFU", "E7_0DfLL7go", "80XR89fomXo", "oqewXcUl3QY",
+                              "aPFwtuJnR54", "ENrOBAZn6Y8", "XMWiqbgTDvg", "m_y7985OlvE", "Fu-kY3JnA0k",
+                              "_IfH5TpSEyU", "ANKSUtkDsCw", "HqkEh61xPy4", "DJc8vc6NWKs", "WG3ZAv1Xcwo"
+                            ],
                             assignedNode: 5
                           },
                           {
-                            id: 'warm-fireplace-cabin',
-                            name: 'Fireplace Library Night',
-                            videoIds: ['L_LUpnjgPso', '4xDzrIxZZZI'],
-                            assignedNode: 6
+                            id: "custom-1780368214019",
+                            name: "focus",
+                            videoIds: [
+                              "5jpfTtlgnTQ", "W6aparAWkcM", "CTmDTWkVIwc", "xqQMCQjzt2A", "poTDTMzV7VE",
+                              "HLOH_EPH_iI", "Z5NVpZ3spew", "kk9yq8ItBg8", "Q-JgSQyQ4H4", "OEdJ5SjX354",
+                              "mWQmfJN5Ixs", "5CU_JcFR0T0"
+                            ],
+                            assignedNode: 4
+                          },
+                          {
+                            id: "custom-1780368699184",
+                            name: "James Scholz",
+                            videoIds: [
+                              "7kgm_k00aqU", "OH4jci9hIew", "uuk0FbpOO7E", "XRd85K2Tfm8", "ZzBXzt71wyY",
+                              "GpGpX8I7kHs", "KjDFQWXIPXQ", "lfQQRMAwEHI", "Zze7QPPGSNA", "DiXZCboAD08",
+                              "xJudZttWuEY", "Em8Y23I4AUM", "P0qQGvJoK68", "pt0UQm8361A", "cEKYyGOm5m8",
+                              "V6vZLCaCoM", "dhfM2b6eIRM", "1jKwCWb3anc", "nIfWhssPDw8", "c9s5jibiPdo",
+                              "Nb8en_Mes4s", "XCdmnqEKtl8", "doDZQIbv97U", "hzYtZrQxhW4", "YfW73eQauso",
+                              "I-IvCF7CD0A", "qkdUGC-izus", "_WADF7q5o-4", "v8Rb3LdGPnw", "R0d6dZWp8GQ"
+                            ],
+                            assignedNode: 3
                           }
                         ];
                         setChannels(defaults);
+                        localStorage.setItem('aesthetic-room:channels', JSON.stringify(defaults));
                         triggerToast('Presets restored successfully!');
                       }}
                       className="text-[9px] text-gray-400 hover:text-white underline cursor-pointer bg-transparent border-none p-0 transition-colors uppercase font-mono tracking-wider"
@@ -2524,6 +2621,8 @@ export default function App() {
           triggerToast(silence ? 'Automated focus reminders muted.' : 'Automated focus reminders active.');
         }}
         areRemindersSilenced={areRemindersSilenced}
+        buddyHistory={buddyHistory}
+        onHistoryChange={setBuddyHistory}
       />
 
     </div>

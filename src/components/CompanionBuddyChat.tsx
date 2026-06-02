@@ -25,6 +25,8 @@ interface CompanionBuddyChatProps {
   onTriggerQuotePopup: (quote: string) => void;
   onToggleSilenceReminders?: (silence: boolean) => void;
   areRemindersSilenced?: boolean;
+  buddyHistory?: Message[];
+  onHistoryChange?: (newHistory: Message[]) => void;
 }
 
 export default function CompanionBuddyChat({
@@ -39,6 +41,8 @@ export default function CompanionBuddyChat({
   onTriggerQuotePopup,
   onToggleSilenceReminders,
   areRemindersSilenced = false,
+  buddyHistory,
+  onHistoryChange,
 }: CompanionBuddyChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [inputMsg, setInputMsg] = useState('');
@@ -62,11 +66,30 @@ export default function CompanionBuddyChat({
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
 
   // Persist conversation history
   useEffect(() => {
     localStorage.setItem('zen-buddy:conversation-history', JSON.stringify(history));
-  }, [history]);
+    if (onHistoryChange) {
+      // Avoid recursive loops
+      const savedInParent = localStorage.getItem('zen-buddy:conversation-history');
+      if (savedInParent !== JSON.stringify(history)) {
+        onHistoryChange(history);
+      }
+    }
+  }, [history, onHistoryChange]);
+
+  // Synchronize history when parent loads a synced profile
+  useEffect(() => {
+    if (buddyHistory && buddyHistory.length > 0) {
+      const isDifferent = buddyHistory.length !== history.length || 
+        JSON.stringify(buddyHistory) !== JSON.stringify(history);
+      if (isDifferent) {
+        setHistory(buddyHistory);
+      }
+    }
+  }, [buddyHistory]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -174,11 +197,23 @@ export default function CompanionBuddyChat({
           <motion.button
             key="buddy-compact-badge"
             id="draggable-buddy-toggle-badge"
-            onClick={() => setIsOpen(true)}
+            onDragStart={() => {
+              isDraggingRef.current = true;
+            }}
+            onDragEnd={() => {
+              setTimeout(() => {
+                isDraggingRef.current = false;
+              }, 120);
+            }}
+            onClick={() => {
+              if (!isDraggingRef.current) {
+                setIsOpen(true);
+              }
+            }}
             drag
             dragMomentum={false}
-            dragElastic={0.02}
-            dragConstraints={{ left: -1200, right: 1200, top: -1200, bottom: 1200 }}
+            dragElastic={0}
+            dragConstraints={{ left: -1400, right: 1400, top: -1400, bottom: 1400 }}
             className="flex items-center gap-2 bg-black hover:bg-zinc-900 text-white shadow-[0_8px_30px_rgba(0,0,0,0.85)] border border-zinc-800 px-4 py-3 rounded-xl cursor-pointer transition-colors duration-200 outline-none select-none"
             initial={{ opacity: 0, scale: 0.8, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -197,8 +232,8 @@ export default function CompanionBuddyChat({
             drag
             dragHandleClassName="draggable-drag-handle-bar"
             dragMomentum={false}
-            dragElastic={0.02}
-            dragConstraints={{ left: -1200, right: 1200, top: -1200, bottom: 1200 }}
+            dragElastic={0}
+            dragConstraints={{ left: -1400, right: 1400, top: -1400, bottom: 1400 }}
             initial={{ opacity: 0, scale: 0.95, y: 30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 30 }}

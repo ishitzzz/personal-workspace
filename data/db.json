@@ -5,7 +5,38 @@
       "password": "ishitjain13",
       "joinedAt": "2026-05-31T00:30:22.082Z",
       "state": {
-        "goals": [],
+        "goals": [
+          {
+            "id": "1780248755323",
+            "text": "double integrals 1",
+            "completed": true
+          },
+          {
+            "id": "1780248763818",
+            "text": "double integrals 2",
+            "completed": true
+          },
+          {
+            "id": "1780248773752",
+            "text": "double integrals 3",
+            "completed": true
+          },
+          {
+            "id": "1780248811582",
+            "text": "double integrals 4",
+            "completed": false
+          },
+          {
+            "id": "1780248816862",
+            "text": "double integrals 5",
+            "completed": false
+          },
+          {
+            "id": "1780248825454",
+            "text": "double integrals 6",
+            "completed": false
+          }
+        ],
         "syllabusList": [
           {
             "id": "1780190275470",
@@ -16,16 +47,29 @@
           }
         ],
         "deadlines": [],
-        "sessionLogs": [],
+        "sessionLogs": [
+          {
+            "date": "2026-05-31",
+            "durationMinutes": 0,
+            "goalsCompleted": 2,
+            "checklistItemsCompleted": 0
+          },
+          {
+            "date": "2026-06-01",
+            "durationMinutes": 180,
+            "goalsCompleted": 1,
+            "checklistItemsCompleted": 0
+          }
+        ],
         "heatMapConfig": {
           "palette": "crimson",
-          "viewRange": "month"
+          "viewRange": "3month"
         },
         "backgroundVideoIds": [
-          "4xDzrIxZZZI",
-          "83DId9I1v6s",
-          "5wREv76k6vY",
-          "jfKfPfyJRdk"
+          "https://www.youtube.com/watch?v=ptDOgiwSzB8",
+          "https://www.youtube.com/watch?v=LVWhS8_MW8M",
+          "https://www.youtube.com/watch?v=Q-JgSQyQ4H4",
+          "https://www.youtube.com/watch?v=ptDOgiwSzB8"
         ],
         "activeGridCount": 4,
         "durationFocus": 25,
@@ -51,6 +95,145 @@
           {
             "role": "assistant",
             "content": "Stretch for 5 minutes: neck, shoulders, wrists, back, and legs."
+          },
+          {
+            "role": "user",
+            "content": "feeling bored "
+          },
+          {
+            "role": "assistant",
+            "content": "Refocus, 84 minutes remain, breathe and proceed."
+          },
+          {
+            "role": "user",
+            "content": "I really need to take some break. I'm feeling really tired for some reason. How much time should I break for depending on the hours I studied till now?"
+          },
+          {
+            "role": "assistant",
+            "content": "You've studied for nearly 2 hours, take a 10-15 minute dynamic break."
+          },
+          {
+            "role": "user",
+            "content": "i dozed off for how long"
+          },
+          {
+            "role": "assistant",
+            "content": "Timer paused, resume when ready, hydrate first."
+          },
+          {
+            "role": "user",
+            "content": "create an exam plan for me"
+          },
+          {
+            "role": "assistant",
+            "content": "<think>\nAlright, the user wants an exam plan. Let me start by understanding their current situation.\n\nLooking at the active workspace, they've completed three double integrals tasks and have three more pending. There are no active study plans or deadlines mentioned. They also have reminders for hydration and stretching every 15 and 30 minutes. The focus timer is at 25 minutes, and they've completed three goals.\n\nThe user might be studying calculus, specifically double integrals, and needs a structured plan to cover the remaining tasks. Since there's no mention of a specific subject beyond math, I should focus on the remaining tasks and possibly expand to related topics if needed.\n\nFirst, I should outline the remaining tasks: double integrals 4, 5, 6. Each of these could be a section or topic within double integrals. Maybe they need practice problems, theory review, or application examples.\n\nNext, consider the time they've studied so far. They mentioned feeling tired and needing breaks, so the plan should include regular intervals for rest. Given the existing reminders every 15 and 30 minutes, the plan should align with those to maintain a balance between study and breaks.\n\nI need to structure the plan over a few days, maybe 3 days, to cover all remaining tasks. Each day can focus on specific topics, with time allocated for practice and review. Including checkpoints for each day to ensure they stay on track.\n\nAlso, since they have a focus timer set to 25 minutes, incorporating Pomodoro technique elements with short breaks after each study session would be beneficial. This aligns with their existing reminders and helps prevent burnout.\n\nI should also suggest resources for each topic, like textbooks or online materials, to support their study. Practice problems are essential for mastering double integrals, so including problem sets each day would reinforce learning.\n\nFinally, the plan should end with a revision day to consolidate all the topics and reinforce understanding. Making sure the plan is realistic and manageable, considering their current workload and energy levels.\n</think>\n\nHere’s a structured 3-day exam plan for mastering **Double Integrals** (remaining tasks and related topics), with built-in breaks and checkpoints:\n\n---\n\n### **Day 1: Core Concepts & Problem Sets**  \n**Focus:** Double integrals in Cartesian coordinates  \n1. **1.5 hours**  \n   - Review theory: definitions, iterated integrals, Fubini’s theorem  \n   - Solve 10-15 problems from Task 4 (Double Integrals 4)  \n   - **Break:** 15 minutes (hydration + stretch)  \n\n2. **1.5 hours**  \n   - Practice geometric applications (area, volume)  \n   - Complete Task 5 (Double Integrals 5)  \n   - **Break:** 10 minutes  \n\n3. **1 hour**  \n   - Quick recap + 5 challenging problems from Task 4/5  \n   - **Break:** 15 minutes  \n\n---\n\n### **Day 2: Advanced Topics & Polar Coordinates**  \n**Focus:** Double integrals in polar coordinates  \n1. **2 hours**  \n   - Study conversion formulas, Jacobian determinant  \n   - Solve 8-10 problems from Task 6 (Double Integrals 6)  \n   - **Break:** 15 minutes  \n\n2. **1.5 hours**  \n   - Apply to real-world problems (e.g., physics, engineering)  \n   - Cross-reference with Task 4/5 for consistency  \n   - **Break:** 10 minutes  \n\n3. **1 hour**  \n   - Mixed problem set (Tasks 4-6) with time limits (5 min per problem)  \n   - **Break:** 20 minutes  \n\n---\n\n### **Day 3: Review & Mastery**  \n1. **2 hours**  \n   - Redo all previous problem sets, focusing on errors  \n   - Use flashcards for key formulas (Fubini, polar conversion)  \n   - **Break:** 15 minutes  \n\n2. **1.5 hours**  \n   - Simulate a 90-minute exam with mixed questions (Tasks 4-6)  \n   - Grade yourself, note weak areas  \n   - **Break:** 10 minutes  \n\n3. **30 minutes**  \n   - Final Q&A session (textbook/online resources)  \n   - **Break:** 15 minutes  \n\n---\n\n### **Daily Checkpoints**  \n- **30-minute study blocks** with 5-minute breaks (aligns with your hydration/stretch reminders).  \n- **Mastery threshold:** Complete all Tasks 4-6 with ≥80% accuracy before moving to Day 3.  \n\n---\n\n[[CREATE_PLAN: {\"title\": \"Double Integrals Exam Plan\", \"description\": \"3-day focused review with problem sets and checkpoints\", \"hourlyGoal"
+          }
+        ],
+        "studyPlans": [],
+        "reminders": [
+          {
+            "id": "rem-1",
+            "title": "Hydration - Drink water",
+            "intervalMinutes": 15,
+            "isActive": true
+          },
+          {
+            "id": "rem-2",
+            "title": "Postural checkpoint & stretch",
+            "intervalMinutes": 30,
+            "isActive": true
+          },
+          {
+            "id": "rem-1780370508440",
+            "title": "Take a break and practice self-care",
+            "intervalMinutes": 30,
+            "isActive": true
+          }
+        ],
+        "channels": [
+          {
+            "id": "custom-1780367919151",
+            "name": "kkoh",
+            "videoIds": [
+              "YA4WApWMg5g", "LVWhS8_MW8M", "Q-le7kz7Uzc", "BenWCKFdONk", "EXB5BMzOmPI",
+              "QFE_Up4J2u8", "lm1ERWXtTHg", "nglhwwwPv6U", "vuRiWFb8ZAg", "eV2KQPG8XeA",
+              "wRWfhuo-c9A", "0ynCD9J-ZAs", "ky0v2xf_R4I", "MdewiPIldJA", "fDG5s-ETdjk",
+              "PrHIPfvtMYY", "C2Z8M-1OzeE", "RJ5XPMV-xZc", "8tC78EVHlG0", "UvVeVSo4epg",
+              "urZdBE-15o8", "N-nT00eFyoI", "nUpAzrSYTU0", "5bj0xSWlbew", "nE3K5pGXrNc",
+              "YdiSDbxbun0", "NzasiL0QE28", "kTav5DadwyM", "FXByyFLKgR8", "pQssJjPYYm8"
+            ],
+            "assignedNode": null
+          },
+          {
+            "id": "custom-1780368076658",
+            "name": "STUDY SOCIETY",
+            "videoIds": [
+              "qnqjIdMmUN4", "VWTQM6fQ_p0", "v9fxE5XsDJs", "FcNXIYDyO2Q", "6bYRGBU8TJ4",
+              "T0HP_gBrjCU", "2k4wtb6_TAY", "FaY9Avl_nuc", "MJvdm4ebS5g"
+            ],
+            "assignedNode": 6
+          },
+          {
+            "id": "custom-1780368114452",
+            "name": "Emily Ann Edit",
+            "videoIds: [
+              "yTI5B-gFJc0", "ly66BBahttc", "38NTU1SotAc", "M_X5IZ6GcTc", "2wdfXH9qdi8",
+              "X39Z1U93Cns", "r3tSqz0a-zI", "3HgXDcXZ3JQ", "AVaJUh9CDws", "xoq5CKt_3O0",
+              "rsi-Hv-vsI4", "Ou2pRs6ruYY", "-R84AzZJZ4k", "3LdsCoNq5gg", "hyFWx3MMkJs",
+              "mL472gTHQwI", "9GaaznbPGGU", "PKXKh8PbJ7Q", "TGeSaTG4xbQ", "EfqD4ievp6c",
+              "-6Rg-z4fphU", "OiuRMvhkKKw", "AlADoe_-2Ys", "crzUV5rkWTI", "bMp3L2186mk",
+              "haRKOe-PNAw", "mNvbv5PSUuU", "kN7WPKnezU4", "OT6xJpnEWRY", "3Mtz9N_y1ik"
+            ],
+            "assignedNode": null
+          },
+          {
+            "id": "custom-1780368138226",
+            "name": "Per Studium",
+            "videoIds": [
+              "yI-vwnodsW8", "8u6j_fBkM_w", "sUl4r-AC6Vc", "deCpXINi9rQ", "nhyAD9XkVbc",
+              "yfUXNpKKyIs", "648vG2ylCcQ", "NRHfrGgmO-o", "yyUAt8aAyy4", "M4mC_3K6lz0",
+              "sjgI7VfAteY", "tqZNKgz27Fk", "CZs_-S-PAdw", "kr2f5mL9t2k", "1fc-2LJ9eYM",
+              "KOG7IV1CYDs", "xUApEiXgFjU", "0QX6haTRqHo", "dXM9_iYENgk", "qAldvvzFCZc",
+              "FfSx4UYeBZc", "t3EHW0Tt2Rk", "w5ICWa1PJRQ", "LHlyIBWdx0g", "jlG539DPTtQ",
+              "ZiyMfBvzmN4", "53cDj5ldbSs", "3IAZ-9CqWI4", "PFgG3dG_PSE", "3sEo2FlA9kE"
+            ],
+            "assignedNode": 1
+          },
+          {
+            "id": "custom-1780368159566",
+            "name": "Akira Studies",
+            "videoIds": [
+              "eSB-PwkF0Pg", "3q3b2DJeKAc", "sC2-ZzhT-3I", "2DESAQvmctM", "gR4g6jtpYoQ",
+              "ELcsLvxJY2w", "tvznoDmDWBY", "uKgTk8c5jUQ", "qTKewlWvtQM", "Ksd-mDI4_xg",
+              "Lgko-c9wxIE", "J_0jBEgsJhg", "HSeavbzfCl0", "Osi49IsfHD0", "U0WrNxt6YN0",
+              "GyZ1w_QdYD0", "OJX6c0gRYFU", "E7_0DfLL7go", "80XR89fomXo", "oqewXcUl3QY",
+              "aPFwtuJnR54", "ENrOBAZn6Y8", "XMWiqbgTDvg", "m_y7985OlvE", "Fu-kY3JnA0k",
+              "_IfH5TpSEyU", "ANKSUtkDsCw", "HqkEh61xPy4", "DJc8vc6NWKs", "WG3ZAv1Xcwo"
+            ],
+            "assignedNode": 5
+          },
+          {
+            "id": "custom-1780368214019",
+            "name": "focus",
+            "videoIds": [
+              "5jpfTtlgnTQ", "W6aparAWkcM", "CTmDTWkVIwc", "xqQMCQjzt2A", "poTDTMzV7VE",
+              "HLOH_EPH_iI", "Z5NVpZ3spew", "kk9yq8ItBg8", "Q-JgSQyQ4H4", "OEdJ5SjX354",
+              "mWQmfJN5Ixs", "5CU_JcFR0T0"
+            ],
+            "assignedNode": 4
+          },
+          {
+            "id": "custom-1780368699184",
+            "name": "James Scholz",
+            "videoIds": [
+              "7kgm_k00aqU", "OH4jci9hIew", "uuk0FbpOO7E", "XRd85K2Tfm8", "ZzBXzt71wyY",
+              "GpGpX8I7kHs", "KjDFQWXIPXQ", "lfQQRMAwEHI", "Zze7QPPGSNA", "DiXZCboAD08",
+              "xJudZttWuEY", "Em8Y23I4AUM", "P0qQGvJoK68", "pt0UQm8361A", "cEKYyGOm5m8",
+              "V6vZLCaCoM", "dhfM2b6eIRM", "1jKwCWb3anc", "nIfWhssPDw8", "c9s5jibiPdo",
+              "Nb8en_Mes4s", "XCdmnqEKtl8", "doDZQIbv97U", "hzYtZrQxhW4", "YfW73eQauso",
+              "I-IvCF7CD0A", "qkdUGC-izus", "_WADF7q5o-4", "v8Rb3LdGPnw", "R0d6dZWp8GQ"
+            ],
+            "assignedNode": 3
           }
         ]
       }
