@@ -38,9 +38,42 @@ export interface HeatMapConfig {
   viewRange: 'week' | 'month' | '3month' | '6month' | '12month';
 }
 
+export interface StudyPlanMilestone {
+  id: string;
+  title: string;
+  dueDate: string;
+  completed: boolean;
+  hoursRequired?: number;
+}
+
+export interface StudyPlan {
+  id: string;
+  title: string;
+  targetExamDate?: string;
+  description: string;
+  hourlyGoal: number;
+  hoursLogged: number;
+  milestones: StudyPlanMilestone[];
+}
+
+export interface StudyReminder {
+  id: string;
+  title: string;
+  intervalMinutes: number;
+  isActive: boolean;
+  lastTriggeredAt?: string; // ISO string or timestamp
+}
+
 export interface UserProfile {
   username: string;
   joinedAt: string;
+}
+
+export interface StudyChannel {
+  id: string;
+  name: string;
+  videoIds: string[];
+  assignedNode: number | null; // index 1 to 6
 }
 
 export interface SyncState {
@@ -54,4 +87,7 @@ export interface SyncState {
   durationFocus: number;
   durationShort: number;
   durationLong: number;
+  studyPlans?: StudyPlan[];
+  reminders?: StudyReminder[];
+  channels?: StudyChannel[];
 }

@@ -17,26 +17,75 @@ interface HeatMapProps {
 export default function HeatMap({ logs, config, onConfigChange, onClearLogs }: HeatMapProps) {
   const [hoveredDay, setHoveredDay] = useState<{ date: string; mins: number; goals: number } | null>(null);
 
-  // Helper: Gather last N days worth of list
+  // Helper: Gather days array aligning perfectly with calendar week or calendar month
   const getDaysArray = (range: string) => {
-    const daysToShow = 
-      range === 'week' ? 7 :
-      range === 'month' ? 30 :
-      range === '3month' ? 90 :
-      range === '6month' ? 180 : 365;
-
     const arr = [];
     const today = new Date();
-    
-    for (let i = daysToShow - 1; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const dateString = d.toISOString().split('T')[0];
-      arr.push({
-        date: dateString,
-        dayOfWeek: d.getDay(),
-        label: d.toLocaleDateString([], { month: 'short', day: 'numeric' })
-      });
+
+    if (range === 'week') {
+      // Current calendar week: Monday to Sunday
+      const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday ... 6 is Saturday
+      const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() + diffToMonday);
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday);
+        d.setDate(monday.getDate() + i);
+        
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateString = `${year}-${month}-${day}`;
+
+        arr.push({
+          date: dateString,
+          dayOfWeek: d.getDay(),
+          label: d.toLocaleDateString([], { month: 'short', day: 'numeric', weekday: 'short' })
+        });
+      }
+    } else if (range === 'month') {
+      // Current calendar month: 1st to last day
+      const year = today.getFullYear();
+      const monthIdx = today.getMonth();
+      const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+
+      for (let i = 1; i <= lastDay; i++) {
+        const d = new Date(year, monthIdx, i);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateString = `${y}-${m}-${day}`;
+
+        arr.push({
+          date: dateString,
+          dayOfWeek: d.getDay(),
+          label: d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+        });
+      }
+    } else {
+      // Rolling view ranges: 3M, 6M, 12M
+      // Start from the last day of the current calendar month so we see the full block of the current month
+      const lastDayOfCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      const totalDays = 
+        range === '3month' ? 90 :
+        range === '6month' ? 180 : 365;
+
+      for (let i = totalDays - 1; i >= 0; i--) {
+        const d = new Date(lastDayOfCurrentMonth);
+        d.setDate(lastDayOfCurrentMonth.getDate() - i);
+        
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const dateString = `${y}-${m}-${day}`;
+
+        arr.push({
+          date: dateString,
+          dayOfWeek: d.getDay(),
+          label: d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+        });
+      }
     }
     return arr;
   };

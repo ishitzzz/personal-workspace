@@ -26,6 +26,9 @@ export default function FloatingCamera({
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null);
 
+  // Permission warning states and sandbox error fallbacks
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+
   // Multi camera state list
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [activeDeviceId1, setActiveDeviceId1] = useState<string>(() => {
@@ -117,89 +120,98 @@ export default function FloatingCamera({
     }
   }, [screenStream]);
 
-  // Set camera stream 1 helper with tracking safety
+  // Set camera streams in a single synchronized helper with sequential loading and tracking safety to prevent concurrent getUserMedia collisions
   useEffect(() => {
     let isActive = true;
-    let stream: MediaStream | null = null;
+    let localStream1: MediaStream | null = null;
+    let localStream2: MediaStream | null = null;
 
-    async function initStream1() {
-      if (!isCameraActive) return;
-      try {
-        const constraints: MediaStreamConstraints = {
-          video: activeDeviceId1 ? { deviceId: { exact: activeDeviceId1 }, width: 320, height: 240 } : { width: 320, height: 240 }
-        };
-        const s = await navigator.mediaDevices.getUserMedia(constraints);
-        if (!isActive) {
-          s.getTracks().forEach(t => t.stop());
-          return;
-        }
-        stream = s;
-        setCameraStream1(s);
-      } catch (err) {
-        console.warn('Could not request camera 1 stream with device constraints, falling back:', err);
-        try {
-          const s = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
-          if (!isActive) {
-            s.getTracks().forEach(t => t.stop());
-            return;
-          }
-          stream = s;
-          setCameraStream1(s);
-        } catch (fbErr) {
-          console.error('Camera 1 fallback failed completely:', fbErr);
-        }
-      }
-    }
-
-    initStream1();
-
-    return () => {
-      isActive = false;
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
-      }
-      setCameraStream1(null);
-    };
-  }, [isCameraActive, activeDeviceId1]);
-
-  // Set camera stream 2 helper with anti-collision checks
-  useEffect(() => {
-    let isActive = true;
-    let stream: MediaStream | null = null;
-
-    async function initStream2() {
-      // Do not open if secondary camera matches primary camera or is unconfigured
-      if (!isCameraActive || !activeDeviceId2 || activeDeviceId2 === activeDeviceId1 || devices.length <= 1) {
+    async function initCams() {
+      if (!isCameraActive) {
+        setCameraStream1(null);
         setCameraStream2(null);
         return;
       }
+
+      // 1. Initialize Stream 1 (Face Cam) first
       try {
-        const constraints: MediaStreamConstraints = {
-          video: { deviceId: { exact: activeDeviceId2 }, width: 320, height: 240 }
+        const constraints1: MediaStreamConstraints = {
+          video: activeDeviceId1 ? { deviceId: { exact: activeDeviceId1 }, width: 320, height: 240 } : { width: 320, height: 240 }
         };
-        const s = await navigator.mediaDevices.getUserMedia(constraints);
+        localStream1 = await navigator.mediaDevices.getUserMedia(constraints1);
         if (!isActive) {
-          s.getTracks().forEach(t => t.stop());
+          localStream1.getTracks().forEach(t => t.stop());
           return;
         }
-        stream = s;
-        setCameraStream2(s);
+        setCameraStream1(localStream1);
+        setPermissionError(null);
       } catch (err) {
-        console.warn('Could not launch secondary workspace camera feed:', err);
+        console.warn('Could not request camera 1 stream with device constraints, falling back:', err);
+        try {
+          localStream1 = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+          if (!isActive) {
+            localStream1.getTracks().forEach(t => t.stop());
+            return;
+          }
+          setCameraStream1(localStream1);
+          setPermissionError(null);
+        } catch (fbErr) {
+          console.error('Camera 1 fallback failed completely:', fbErr);
+          setPermissionError(
+            "Camera Blocked: Sandboxed iframe blocks hardware access, or permission was declined. Try clicking 'New Tab' at the outer top-right of your workspace to bypass Google AI Studio iframe constraints!"
+          );
+          setCameraStream1(null);
+          setCameraStream2(null);
+          return; // If we can't get even the primary camera, exit
+        }
+      }
+
+      // 2. Initialize Stream 2 (Desk Cam) second (sequential, after Stream 1 succeeds)
+      if (activeDeviceId2 && activeDeviceId2 !== '') {
+        if (activeDeviceId2 === activeDeviceId1) {
+          // If the cameras are the same, clone the first stream instead of opening a second getUserMedia flow
+          if (localStream1 && isActive) {
+            localStream2 = localStream1.clone();
+            setCameraStream2(localStream2);
+          }
+        } else {
+          try {
+            const constraints2: MediaStreamConstraints = {
+              video: { deviceId: { exact: activeDeviceId2 }, width: 320, height: 240 }
+            };
+            localStream2 = await navigator.mediaDevices.getUserMedia(constraints2);
+            if (!isActive) {
+              localStream2.getTracks().forEach(t => t.stop());
+              return;
+            }
+            setCameraStream2(localStream2);
+          } catch (err2) {
+            console.warn('Could not launch secondary workspace camera feed, falling back to cloned visual feed:', err2);
+            if (isActive && localStream1) {
+              localStream2 = localStream1.clone();
+              setCameraStream2(localStream2);
+            }
+          }
+        }
+      } else {
         setCameraStream2(null);
       }
     }
 
-    initStream2();
+    initCams();
 
     return () => {
       isActive = false;
-      if (stream) {
-        stream.getTracks().forEach(t => t.stop());
+      if (localStream1) {
+        localStream1.getTracks().forEach(t => t.stop());
       }
+      if (localStream2) {
+        localStream2.getTracks().forEach(t => t.stop());
+      }
+      setCameraStream1(null);
       setCameraStream2(null);
     };
-  }, [isCameraActive, activeDeviceId2, activeDeviceId1, devices.length]);
+  }, [isCameraActive, activeDeviceId1, activeDeviceId2]);
 
   // Toggle Screen Sharing helper
   const handleToggleScreenShare = async () => {
@@ -212,13 +224,14 @@ export default function FloatingCamera({
           video: true
         });
         setScreenStream(stream);
+        setPermissionError(null);
         stream.getVideoTracks()[0].onended = () => {
           setScreenStream(null);
         };
       } catch (err) {
         console.warn('Screen sharing capture request rejected:', err);
-        alert(
-          "Display sharing check: For permission inside sandbox layouts, make sure you authorized access. You can also open the workspace app in a 'New Tab' using the outer window button to bypass iframe limitations!"
+        setPermissionError(
+          "Screen Share Disallowed: Sandbox iframe policy blocked the 'display-capture' feature request. To stream your screen/slides, open this application in a 'New Tab' using the button in the top-right corner!"
         );
       }
     }
@@ -381,7 +394,7 @@ export default function FloatingCamera({
         )}
 
         {/* Action button trigger screen sharing */}
-        <div className="pt-0.5">
+        <div className="pt-0.5 space-y-2">
           <button
             onClick={handleToggleScreenShare}
             className={`w-full py-1.5 rounded-xl border flex items-center justify-center gap-1.5 transition-all text-[10px] font-mono uppercase font-semibold cursor-pointer ${
@@ -393,6 +406,21 @@ export default function FloatingCamera({
             <ScreenShare className="w-3.5 h-3.5" />
             <span>{screenStream ? 'Disconnect Screen Share' : 'Start Screen Sharing'}</span>
           </button>
+
+          {/* Sandbox inline help warnings */}
+          {permissionError && (
+            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-200 p-2.5 rounded-lg text-[9.5px] font-mono leading-relaxed relative text-left">
+              <p className="pr-4">{permissionError}</p>
+              <button
+                type="button"
+                onClick={() => setPermissionError(null)}
+                className="absolute top-1 right-2 text-amber-400 hover:text-white font-bold text-xs cursor-pointer"
+                title="Dismiss warning"
+              >
+                ×
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Device config selects dropdowns */}

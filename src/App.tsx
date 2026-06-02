@@ -48,13 +48,15 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 
 // Modular Workspace Component Imports
-import { Goal, SyllabusItem, Deadline, FocusSessionLog, HeatMapConfig } from './types';
+import { Goal, SyllabusItem, Deadline, FocusSessionLog, HeatMapConfig, StudyPlan, StudyReminder, StudyChannel } from './types';
 import HeatMap from './components/HeatMap';
 import CalendarDeadlines from './components/CalendarDeadlines';
 import SyllabusManager from './components/SyllabusManager';
 import AICoachChat from './components/AICoachChat';
 import FloatingCamera from './components/FloatingCamera';
+import CompanionBuddyChat from './components/CompanionBuddyChat';
 import BackgroundGrid from './components/BackgroundGrid';
+import StudyPlansManager from './components/StudyPlansManager';
 import { zenAudioSynthInstance } from './lib/audioSynth';
 
 // CURATED PRESETS
@@ -140,6 +142,12 @@ export default function App() {
     return localStorage.getItem('aesthetic-room:is-bottom-bar-open') !== 'false';
   });
 
+  // Floating success quotes and therapist configuration
+  const [activeQuotePopup, setActiveQuotePopup] = useState<string | null>(null);
+  const [areRemindersSilenced, setAreRemindersSilenced] = useState<boolean>(() => {
+    return localStorage.getItem('aesthetic-room:reminders-silenced') === 'true';
+  });
+
   // Focus Timer Parameters
   const [activeTimerMode, setActiveTimerMode] = useState<TimerMode>('focus');
   const [isRunning, setIsRunning] = useState<boolean>(false);
@@ -181,6 +189,95 @@ export default function App() {
     const saved = localStorage.getItem('aesthetic-room:bg-opacity');
     return saved ? Number(saved) : 30;
   });
+
+  const [channels, setChannels] = useState<StudyChannel[]>(() => {
+    try {
+      const saved = localStorage.getItem('aesthetic-room:channels');
+      return saved ? JSON.parse(saved) : [
+        {
+          id: 'lofi-girl',
+          name: 'Lofi Girl Live',
+          videoIds: ['jfKfPfyJRdk', '4xDzrIxZZZI', 'D7B0G8yF-E8', 'nH_G_mH7Fsw'],
+          assignedNode: 1
+        },
+        {
+          id: 'abao-study',
+          name: 'Abao Study Room',
+          videoIds: ['83DId9I1v6s', 'V3rD_p_eIjg', '5wREv76k6vY'],
+          assignedNode: 2
+        },
+        {
+          id: 'chillhop-records',
+          name: 'Chillhop Lounge',
+          videoIds: ['5wREv76k6vY', 'L_LUpnjgPso'],
+          assignedNode: 3
+        },
+        {
+          id: 'coffee-shop-vibes',
+          name: 'Cozy Espresso Cafe',
+          videoIds: ['D7B0G8yF-E8', 'V3rD_p_eIjg', '83DId9I1v6s'],
+          assignedNode: 4
+        },
+        {
+          id: 'tokyo-night-walk',
+          name: 'Tokyo Rain Streets',
+          videoIds: ['83DId9I1v6s', 'D7B0G8yF-E8'],
+          assignedNode: 5
+        },
+        {
+          id: 'warm-fireplace-cabin',
+          name: 'Fireplace Library Night',
+          videoIds: ['L_LUpnjgPso', '4xDzrIxZZZI'],
+          assignedNode: 6
+        }
+      ];
+    } catch {
+      return [
+        {
+          id: 'lofi-girl',
+          name: 'Lofi Girl Live',
+          videoIds: ['jfKfPfyJRdk', '4xDzrIxZZZI', 'D7B0G8yF-E8', 'nH_G_mH7Fsw'],
+          assignedNode: 1
+        },
+        {
+          id: 'abao-study',
+          name: 'Abao Study Room',
+          videoIds: ['83DId9I1v6s', 'V3rD_p_eIjg', '5wREv76k6vY'],
+          assignedNode: 2
+        },
+        {
+          id: 'chillhop-records',
+          name: 'Chillhop Lounge',
+          videoIds: ['5wREv76k6vY', 'L_LUpnjgPso'],
+          assignedNode: 3
+        },
+        {
+          id: 'coffee-shop-vibes',
+          name: 'Cozy Espresso Cafe',
+          videoIds: ['D7B0G8yF-E8', 'V3rD_p_eIjg', '83DId9I1v6s'],
+          assignedNode: 4
+        },
+        {
+          id: 'tokyo-night-walk',
+          name: 'Tokyo Rain Streets',
+          videoIds: ['83DId9I1v6s', 'D7B0G8yF-E8'],
+          assignedNode: 5
+        },
+        {
+          id: 'warm-fireplace-cabin',
+          name: 'Fireplace Library Night',
+          videoIds: ['L_LUpnjgPso', '4xDzrIxZZZI'],
+          assignedNode: 6
+        }
+      ];
+    }
+  });
+
+  const [newChannelName, setNewChannelName] = useState('');
+  const [newChannelVideoIds, setNewChannelVideoIds] = useState('');
+  const [importChannelUrl, setImportChannelUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [creatorTab, setCreatorTab] = useState<'auto' | 'manual'>('auto');
 
   // Core synchronized/localStorage stored datasets
   const [goals, setGoals] = useState<Goal[]>(() => {
@@ -236,6 +333,57 @@ export default function App() {
   const [isCameraActive, setIsCameraActive] = useState<boolean>(() => {
     return localStorage.getItem('aesthetic-room:is-camera-active') === 'true';
   });
+
+  // Study plans, deadlines and customizable dynamic periodic reminders
+  const [studyPlans, setStudyPlans] = useState<StudyPlan[]>(() => {
+    try {
+      const saved = localStorage.getItem('aesthetic-room:study-plans');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [reminders, setReminders] = useState<StudyReminder[]>(() => {
+    try {
+      const saved = localStorage.getItem('aesthetic-room:reminders');
+      return saved ? JSON.parse(saved) : [
+        { id: 'rem-1', title: 'Hydration - Drink water', intervalMinutes: 15, isActive: true },
+        { id: 'rem-2', title: 'Postural checkpoint & stretch', intervalMinutes: 30, isActive: true }
+      ];
+    } catch {
+      return [
+        { id: 'rem-1', title: 'Hydration - Drink water', intervalMinutes: 15, isActive: true },
+        { id: 'rem-2', title: 'Postural checkpoint & stretch', intervalMinutes: 30, isActive: true }
+      ];
+    }
+  });
+
+  const [isFloatingCameraOpen, setIsFloatingCameraOpen] = useState<boolean>(() => {
+    return localStorage.getItem('aesthetic-room:is-floating-camera-open') === 'true';
+  });
+
+  const reminderSecondsRef = useRef<{ [key: string]: number }>({});
+
+  const playSubtleSynthChime = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5 note
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15); // E5 note
+      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.30); // G5 note
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.8);
+    } catch (e) {
+      console.warn("Web Audio synth skipped:", e);
+    }
+  };
 
   // Interactive Sandboxed Screen-Notebook Canvas
   const [notepadText, setNotepadText] = useState<string>(() => {
@@ -313,6 +461,18 @@ export default function App() {
   const chimeAudioRef = useRef<HTMLAudioElement | null>(null);
   const playPromisesRef = useRef<{ [key: string]: Promise<void> | null }>({});
 
+  // Accumulate focus ticks in seconds spent ref for real-time focus minute tracking
+  const secondsSpentRef = useRef(0);
+
+  // Helper helper to get local date string YYYY-MM-DD
+  const getLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Automatic localStorage state persistence effects
   useEffect(() => {
     localStorage.setItem('aesthetic-room:is-goals-open', String(isGoalsOpen));
@@ -378,7 +538,35 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:is-camera-active', String(isCameraActive));
+    if (isCameraActive) {
+      setIsFloatingCameraOpen(true);
+    }
   }, [isCameraActive]);
+
+  useEffect(() => {
+    localStorage.setItem('aesthetic-room:is-floating-camera-open', String(isFloatingCameraOpen));
+  }, [isFloatingCameraOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('aesthetic-room:study-plans', JSON.stringify(studyPlans));
+    if (user) {
+      syncWorkspaceDataSave({ studyPlans });
+    }
+  }, [studyPlans, user]);
+
+  useEffect(() => {
+    localStorage.setItem('aesthetic-room:reminders', JSON.stringify(reminders));
+    if (user) {
+      syncWorkspaceDataSave({ reminders });
+    }
+  }, [reminders, user]);
+
+  useEffect(() => {
+    localStorage.setItem('aesthetic-room:channels', JSON.stringify(channels));
+    if (user) {
+      syncWorkspaceDataSave({ channels });
+    }
+  }, [channels, user]);
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:notepad-text', notepadText);
@@ -432,44 +620,100 @@ export default function App() {
   useEffect(() => {
     const mins = activeTimerMode === 'focus' ? durationFocus : activeTimerMode === 'short' ? durationShort : durationLong;
     setTimeLeft(mins * 60);
+    secondsSpentRef.current = 0; // Reset seconds accumulator whenever we switch timer segments!
   }, [activeTimerMode]);
 
   useEffect(() => {
     if (!isRunning) {
       const mins = activeTimerMode === 'focus' ? durationFocus : activeTimerMode === 'short' ? durationShort : durationLong;
       setTimeLeft(mins * 60);
+      secondsSpentRef.current = 0; // Reset seconds accumulator when duration is changed while idle
     }
   }, [durationFocus, durationShort, durationLong]);
+
+  const remindersRef = useRef(reminders);
+  useEffect(() => {
+    remindersRef.current = reminders;
+  }, [reminders]);
 
   // Main timer tick implementation
   useEffect(() => {
     let sub: any = null;
     if (isRunning) {
       sub = setInterval(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            setIsRunning(false);
-            playCompletionChime();
-            triggerToast(`Session complete! Logged focus minutes to your heat map.`);
-            
-            // Record focus log to heat map
-            const todayStr = new Date().toISOString().split('T')[0];
+        // Increment real-time focus seconds spent if we are focusing
+        if (activeTimerMode === 'focus') {
+          secondsSpentRef.current += 1;
+
+          // Increment and check dynamic reminders using ref to avoid resetting countdown timer on list checks
+          remindersRef.current.forEach((rem) => {
+            if (rem.isActive) {
+              const prevCount = reminderSecondsRef.current[rem.id] || 0;
+              const count = prevCount + 1;
+              const limit = rem.intervalMinutes * 60;
+              if (count >= limit) {
+                reminderSecondsRef.current[rem.id] = 0;
+                if (!areRemindersSilenced) {
+                  playSubtleSynthChime();
+                  triggerToast(`🔔 Zen Reminder: ${rem.title}! Keep your focus strong.`);
+                }
+              } else {
+                reminderSecondsRef.current[rem.id] = count;
+              }
+            }
+          });
+
+          if (secondsSpentRef.current >= 60) {
+            secondsSpentRef.current = 0;
+            const todayStr = getLocalDateString();
             setSessionLogs((prevLogs) => {
               const matchedLogIdx = prevLogs.findIndex((l) => l.date === todayStr);
               if (matchedLogIdx !== -1) {
                 const updated = [...prevLogs];
                 updated[matchedLogIdx] = {
                   ...updated[matchedLogIdx],
-                  durationMinutes: updated[matchedLogIdx].durationMinutes + durationFocus
+                  durationMinutes: updated[matchedLogIdx].durationMinutes + 1
                 };
                 return updated;
               } else {
                 return [
                   ...prevLogs,
-                  { date: todayStr, durationMinutes: durationFocus, goalsCompleted: 0, checklistItemsCompleted: 0 }
+                  { date: todayStr, durationMinutes: 1, goalsCompleted: 0, checklistItemsCompleted: 0 }
                 ];
               }
             });
+          }
+        }
+
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            setIsRunning(false);
+            playCompletionChime();
+            triggerToast(`Session complete! Perfect focus maintained.`);
+            
+            // Reached completion. Flush any remaining seconds that are >= 30 seconds if any
+            if (activeTimerMode === 'focus') {
+              if (secondsSpentRef.current >= 30) {
+                const todayStr = getLocalDateString();
+                setSessionLogs((prevLogs) => {
+                  const matchedLogIdx = prevLogs.findIndex((l) => l.date === todayStr);
+                  if (matchedLogIdx !== -1) {
+                    const updated = [...prevLogs];
+                    updated[matchedLogIdx] = {
+                      ...updated[matchedLogIdx],
+                      durationMinutes: updated[matchedLogIdx].durationMinutes + 1
+                    };
+                    return updated;
+                  } else {
+                    return [
+                      ...prevLogs,
+                      { date: todayStr, durationMinutes: 1, goalsCompleted: 0, checklistItemsCompleted: 0 }
+                    ];
+                  }
+                });
+              }
+              secondsSpentRef.current = 0; // reset
+            }
             return 0;
           }
           return prev - 1;
@@ -559,47 +803,79 @@ export default function App() {
     };
   }, []);
 
-  // Scheduled Image Analysis with fallbacks
+  // Scheduled Image Analysis with fallbacks - Only executes when Camera is active
   useEffect(() => {
     let sub: any = null;
-    if (isAiMonitorActive) {
+    if (isAiMonitorActive && isCameraActive) {
       // Run once immediately on activation or mount
       runWorkspaceVisionCheck();
       
       sub = setInterval(() => {
         runWorkspaceVisionCheck();
       }, aiCheckInterval * 1000);
+    } else {
+      setAiAnalysisStatus('idle');
     }
     return () => {
       if (sub) clearInterval(sub);
     };
-  }, [isAiMonitorActive, aiCheckInterval]);
+  }, [isAiMonitorActive, isCameraActive, aiCheckInterval]);
 
   // Capture frame of the Notepad canvas layout or webcams as visual proxy screenshot
   const runWorkspaceVisionCheck = async () => {
+    if (!isCameraActive) {
+      setAiAnalysisStatus('idle');
+      return;
+    }
+
     setAiAnalysisStatus('loading');
     
-    // Fallback Mock representation: Render canvas visually
+    // Check for playing webcam/screencare tracks on the visual render tree to compile collage frame buffers
     let visualBase64 = '';
     try {
       const canvas = document.createElement('canvas');
-      canvas.width = 400;
-      canvas.height = 300;
+      canvas.width = 640;
+      canvas.height = 480;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, 400, 300);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '14px monaco, monospace';
-        ctx.fillText(`Workspace Notebook Snapshot`, 20, 40);
-        ctx.fillText(`User: ${user?.username || 'Guest student'}`, 20, 70);
-        ctx.fillText(`Timer status: ${isRunning ? 'Running' : 'Paused'}`, 20, 100);
-        
-        ctx.fillStyle = '#8a8a8a';
-        ctx.fillText(`Active notes: ${notepadText.substring(0, 40)}...`, 20, 140);
-        visualBase64 = canvas.toDataURL('image/jpeg', 0.82);
+        // Render rich dark studio wallpaper slate background
+        ctx.fillStyle = '#0a0a0c';
+        ctx.fillRect(0, 0, 640, 480);
+
+        const videoNodes = Array.from(document.querySelectorAll('video')) as HTMLVideoElement[];
+        const playingVideos = videoNodes.filter(v => v.readyState >= 2 && !v.paused);
+
+        if (playingVideos.length > 0) {
+          if (playingVideos.length === 1) {
+            ctx.drawImage(playingVideos[0], 0, 0, 640, 480);
+          } else {
+            // Split layout side-by-side
+            ctx.drawImage(playingVideos[0], 0, 120, 320, 240);
+            if (playingVideos[1]) {
+              ctx.drawImage(playingVideos[1], 320, 120, 320, 240);
+            }
+          }
+        } else {
+          // Fallback: draw aesthetic notepad canvas matrix
+          ctx.fillStyle = '#111115';
+          ctx.fillRect(15, 15, 610, 450);
+          ctx.fillStyle = '#ffffff';
+          ctx.font = 'bold 15px monospace';
+          ctx.fillText(`Zen Workspace Virtual Monitor`, 35, 55);
+          ctx.fillStyle = '#8e8e93';
+          ctx.font = '12px Courier';
+          ctx.fillText(`Monitor: ACTIVE | Active goal: ${goals.find(g => !g.completed)?.text || 'None set'}`, 35, 90);
+          ctx.fillText(`Current Notepad:`, 35, 130);
+          const parts = notepadText.split('\n').slice(0, 10);
+          parts.forEach((line, i) => {
+            ctx.fillText(line.substring(0, 65), 45, 160 + i * 25);
+          });
+        }
+        visualBase64 = canvas.toDataURL('image/jpeg', 0.85);
       }
-    } catch {}
+    } catch (e) {
+      console.warn("Webcam stream composite snapshot fell back:", e);
+    }
 
     const pendingGoal = goals.find(g => !g.completed)?.text || 'General Work Focus';
 
@@ -609,7 +885,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           image: visualBase64,
-          mode: 'screen',
+          mode: 'camera', // Identify real webcam status checks
           goal: pendingGoal
         })
       });
@@ -685,6 +961,9 @@ export default function App() {
             if (data.state.durationLong !== undefined) setDurationLong(data.state.durationLong);
             if (data.state.backgroundVideoIds !== undefined) setGridVideos(data.state.backgroundVideoIds);
             if (data.state.chatMessages !== undefined) setChatMessages(data.state.chatMessages);
+            if (data.state.studyPlans !== undefined) setStudyPlans(data.state.studyPlans);
+            if (data.state.reminders !== undefined) setReminders(data.state.reminders);
+            if (data.state.channels !== undefined) setChannels(data.state.channels);
           }
         }
       } catch (err) {
@@ -736,6 +1015,9 @@ export default function App() {
         setDurationShort(data.state.durationShort || 5);
         setDurationLong(data.state.durationLong || 15);
         if (data.state.backgroundVideoIds !== undefined) setGridVideos(data.state.backgroundVideoIds);
+        setStudyPlans(data.state.studyPlans || []);
+        setReminders(data.state.reminders || []);
+        setChannels(data.state.channels || []);
       }
 
       setAuthMode('none');
@@ -804,6 +1086,76 @@ export default function App() {
     syncWorkspaceDataSave({ syllabusList: next });
   };
 
+  // Study plans handlings
+  const handleAddStudyPlan = (newPlan: Omit<StudyPlan, 'id' | 'hoursLogged'>) => {
+    const plan: StudyPlan = {
+      ...newPlan,
+      id: `plan-${Date.now()}`,
+      hoursLogged: 0
+    };
+    setStudyPlans(prev => [...prev, plan]);
+    triggerToast(`Scheduled study plan registered: ${plan.title}`);
+  };
+
+  const handleDeleteStudyPlan = (id: string) => {
+    setStudyPlans(prev => prev.filter(p => p.id !== id));
+    triggerToast('Study plan cleared.');
+  };
+
+  const handleToggleStudyPlanMilestone = (planId: string, milestoneId: string) => {
+    setStudyPlans(prev => prev.map(p => {
+      if (p.id !== planId) return p;
+      const updatedMilestones = p.milestones.map(m => {
+        if (m.id !== milestoneId) return m;
+        const nextCompleted = !m.completed;
+        if (nextCompleted) {
+          triggerToast(`Milestone completed: ${m.title}!`);
+        }
+        return { ...m, completed: nextCompleted };
+      });
+      return { ...p, milestones: updatedMilestones };
+    }));
+  };
+
+  const handleLogStudyPlanHours = (planId: string, hours: number) => {
+    setStudyPlans(prev => prev.map(p => {
+      if (p.id !== planId) return p;
+      const total = p.hoursLogged + hours;
+      triggerToast(`Logged ${hours}h study time towards ${p.title}. Keep progressing!`);
+      return { ...p, hoursLogged: total };
+    }));
+  };
+
+  const handleAddStudyPlanMilestone = (planId: string, title: string, dueDate: string) => {
+    setStudyPlans(prev => prev.map(p => {
+      if (p.id !== planId) return p;
+      const nextMilestone = {
+        id: `m-${Date.now()}`,
+        title,
+        dueDate: dueDate || p.targetExamDate || new Date().toISOString().split('T')[0],
+        completed: false
+      };
+      return { ...p, milestones: [...p.milestones, nextMilestone] };
+    }));
+    triggerToast('Added custom plan milestone.');
+  };
+
+  const handleAddReminder = (title: string, minutes: number) => {
+    const nextReminder: StudyReminder = {
+      id: `rem-${Date.now()}`,
+      title,
+      intervalMinutes: minutes,
+      isActive: true
+    };
+    setReminders(prev => [...prev, nextReminder]);
+    triggerToast(`Added periodic alert: ${title} every ${minutes}m.`);
+  };
+
+  const handleDeleteReminder = (id: string) => {
+    setReminders(prev => prev.filter(r => r.id !== id));
+    triggerToast('Reminder deleted.');
+  };
+
   const handleAddDeadline = (title: string, date: string, priority: 'low' | 'medium' | 'high') => {
     const next = [...deadlines, { id: Date.now().toString(), title, date, priority, completed: false }];
     setDeadlines(next);
@@ -824,7 +1176,7 @@ export default function App() {
     syncWorkspaceDataSave({ deadlines: next });
 
     // Instantly sync with heat map session logs!
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     setSessionLogs((prevLogs) => {
       const matchIdx = prevLogs.findIndex((l) => l.date === todayStr);
       if (matchIdx !== -1) {
@@ -877,7 +1229,7 @@ export default function App() {
     syncWorkspaceDataSave({ goals: next });
 
     // Instantly sync with heat map session logs!
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     setSessionLogs((prevLogs) => {
       const matchIdx = prevLogs.findIndex((l) => l.date === todayStr);
       if (matchIdx !== -1) {
@@ -919,7 +1271,7 @@ export default function App() {
     <div className="relative min-h-screen w-full bg-slate-950 font-sans text-white overflow-x-hidden selection:bg-white/20">
       
       {/* 1. Curated Multigrid Atmosphere Background Stream Layout */}
-      <BackgroundGrid gridVideos={gridVideos} activeGridCount={activeGridCount} />
+      <BackgroundGrid gridVideos={gridVideos} activeGridCount={activeGridCount} channels={channels} />
 
       {/* 2. Sleek Glass Foreground Layer - Removed backdrop-blur overlay to give user flawless crystal clear footage */}
       <div className={`relative z-10 min-h-screen flex flex-col px-4 py-3 sm:px-6 bg-transparent transition-all duration-500 ${
@@ -1281,17 +1633,33 @@ export default function App() {
                           </span>
                         </div>
 
-                        <div className="flex gap-2 text-xs">
+                        <div className="flex flex-col gap-2 text-xs">
                           <button
                             onClick={handleToggleCamera}
-                            className={`flex-grow py-2 rounded-xl border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                            className={`w-full py-2 rounded-xl border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                               isCameraActive 
                                 ? 'bg-white text-black border-white font-semibold' 
-                                : 'bg-black/30 border-white/10 text-gray-400 hover:text-white'
+                                : 'bg-black/25 border-white/10 text-gray-400 hover:text-white'
                             }`}
                           >
                             <Camera className="w-3.5 h-3.5" />
                             <span>{isCameraActive ? 'Disable Cams' : 'Start Cameras'}</span>
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              const next = !isFloatingCameraOpen;
+                              setIsFloatingCameraOpen(next);
+                              triggerToast(next ? 'Floating Stream HUD display active.' : 'Floating Stream panel closed.');
+                            }}
+                            className={`w-full py-2 rounded-xl border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                              isFloatingCameraOpen 
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 font-semibold' 
+                                : 'bg-black/25 border-white/10 text-gray-400 hover:text-white'
+                            }`}
+                          >
+                            <Video className="w-3.5 h-3.5" />
+                            <span>{isFloatingCameraOpen ? 'Close Stream HUD' : 'Open Stream HUD'}</span>
                           </button>
                         </div>
 
@@ -1376,10 +1744,12 @@ export default function App() {
 
           {/* Draggable Face & USB Desk camera preview overlays - Rendered globally so it never unmounts during page switching */}
           <AnimatePresence>
-            {isCameraActive && (
+            {isFloatingCameraOpen && (
               <FloatingCamera
                 isCameraActive={isCameraActive}
-                onToggleCamera={handleToggleCamera}
+                onToggleCamera={() => {
+                  setIsFloatingCameraOpen(false);
+                }}
                 aiAnalysisStatus={aiAnalysisStatus}
                 aiAnalysisSummary={aiAnalysisSummary}
                 lastAiCheck={lastAiCheck}
@@ -1415,6 +1785,16 @@ export default function App() {
                 onDeleteDeadline={handleDeleteDeadline}
               />
 
+              {/* Central Study Plans Manager Dashboard */}
+              <StudyPlansManager
+                plans={studyPlans}
+                onAddPlan={handleAddStudyPlan}
+                onDeletePlan={handleDeleteStudyPlan}
+                onToggleMilestone={handleToggleStudyPlanMilestone}
+                onLogPlanHours={handleLogStudyPlanHours}
+                onAddMilestone={handleAddStudyPlanMilestone}
+              />
+
               {/* Syllabus and references attachments + AI chat tutor coach column */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <SyllabusManager
@@ -1430,6 +1810,12 @@ export default function App() {
                   goalsCompleted={sessionLogs.reduce((acc, curr) => acc + (curr.goalsCompleted || 0), 0)}
                   messages={chatMessages}
                   onSetMessages={handleSaveChatMessages}
+                  onAddReminder={handleAddReminder}
+                  onAddStudyPlan={handleAddStudyPlan}
+                  goals={goals}
+                  deadlines={deadlines}
+                  studyPlans={studyPlans}
+                  reminders={reminders}
                 />
               </div>
             </div>
@@ -1441,8 +1827,8 @@ export default function App() {
         {isBottomBarOpen && !isRunning ? (
           <footer className="w-full max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 border-t border-white/10 pt-4 mt-6 text-xs text-gray-400">
             <div className="flex items-center gap-3">
-              <span className="text-gray-400 font-mono uppercase bg-white/5 border border-white/5 py-1 px-2.5 rounded-lg">
-                Studio wallpaper grid status:
+              <span className="text-gray-400 font-mono uppercase bg-white/5 border border-white/5 py-1 px-2.5 rounded-lg text-[9px]">
+                Wallpaper Grid Screens:
               </span>
               <div className="flex bg-black/40 border border-white/10 p-0.5 rounded-lg z-10">
                 {([1, 2, 3, 4, 6] as const).map(n => (
@@ -1458,7 +1844,7 @@ export default function App() {
                         : 'text-gray-400 hover:text-white'
                     }`}
                   >
-                    {n} Cam{n > 1 ? 's' : ''}
+                    {n} screen{n > 1 ? 's' : ''}
                   </button>
                 ))}
               </div>
@@ -1473,19 +1859,6 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-[10px] font-mono text-gray-400">Atmosphere Opacity:</span>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={bgOpacity}
-                onChange={(e) => setBgOpacity(Number(e.target.value))}
-                className="w-24 accent-white cursor-pointer h-1 rounded bg-black"
-              />
-              <span className="text-gray-500 text-[10px] font-mono w-8">{bgOpacity}%</span>
-
-              <span className="text-[#333] font-mono">|</span>
-
               {/* Advanced Synthesis vs Stream control */}
               <div className="flex items-center gap-1 bg-black/40 border border-white/10 p-0.5 rounded-lg text-[9px] font-mono select-none">
                 <button
@@ -1604,6 +1977,308 @@ export default function App() {
                   >
                     <X className="w-4 h-4" />
                   </button>
+                </div>
+
+                {/* Channels Loop Manager Section */}
+                <div className="bg-white/5 rounded-xl border border-white/5 p-4 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs uppercase font-space font-bold text-gray-200 flex items-center gap-2">
+                      <Tv className="w-4 h-4 text-neutral-300 animate-pulse" />
+                      Assigned Loop Channels
+                    </h3>
+                    <button
+                      onClick={() => {
+                        const defaults = [
+                          {
+                            id: 'lofi-girl',
+                            name: 'Lofi Girl Live',
+                            videoIds: ['jfKfPfyJRdk', '4xDzrIxZZZI', 'D7B0G8yF-E8', 'nH_G_mH7Fsw'],
+                            assignedNode: 1
+                          },
+                          {
+                            id: 'abao-study',
+                            name: 'Abao Study Room',
+                            videoIds: ['83DId9I1v6s', 'V3rD_p_eIjg', '5wREv76k6vY'],
+                            assignedNode: 2
+                          },
+                          {
+                            id: 'chillhop-records',
+                            name: 'Chillhop Lounge',
+                            videoIds: ['5wREv76k6vY', 'L_LUpnjgPso'],
+                            assignedNode: 3
+                          },
+                          {
+                            id: 'coffee-shop-vibes',
+                            name: 'Cozy Espresso Cafe',
+                            videoIds: ['D7B0G8yF-E8', 'V3rD_p_eIjg', '83DId9I1v6s'],
+                            assignedNode: 4
+                          },
+                          {
+                            id: 'tokyo-night-walk',
+                            name: 'Tokyo Rain Streets',
+                            videoIds: ['83DId9I1v6s', 'D7B0G8yF-E8'],
+                            assignedNode: 5
+                          },
+                          {
+                            id: 'warm-fireplace-cabin',
+                            name: 'Fireplace Library Night',
+                            videoIds: ['L_LUpnjgPso', '4xDzrIxZZZI'],
+                            assignedNode: 6
+                          }
+                        ];
+                        setChannels(defaults);
+                        triggerToast('Presets restored successfully!');
+                      }}
+                      className="text-[9px] text-gray-400 hover:text-white underline cursor-pointer bg-transparent border-none p-0 transition-colors uppercase font-mono tracking-wider"
+                    >
+                      Restore Presets
+                    </button>
+                  </div>
+                  
+                  <p className="text-[11px] text-gray-400 font-mono leading-relaxed">
+                    Choose which channel’s ambient streams loop automatically on your camera nodes. You can delete presets to tailor your library.
+                  </p>
+
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 custom-scrollbar">
+                    {channels.length === 0 ? (
+                      <div className="text-center py-6 border border-dashed border-white/10 rounded-lg bg-black/20">
+                        <span className="text-[10px] text-gray-500 font-mono block">No loop channels active in database.</span>
+                        <span className="text-[9px] text-gray-600 font-mono block mt-1">Import a custom channel from YouTube below.</span>
+                      </div>
+                    ) : (
+                      channels.map((channel) => (
+                        <div key={channel.id} className="bg-black/35 border border-white/5 p-2.5 rounded-lg space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-grow">
+                              <span className="text-xs font-semibold text-gray-200 block truncate">
+                                {channel.name}
+                              </span>
+                              <span className="text-[9px] text-gray-500 font-mono block">
+                                {channel.videoIds.length} Loop streams loaded
+                              </span>
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <select
+                                value={channel.assignedNode || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value === '' ? null : Number(e.target.value);
+                                  setChannels(channels.map(c => {
+                                    if (c.id === channel.id) {
+                                      return { ...c, assignedNode: val };
+                                    }
+                                    // Auto-unassign other channels for target node to prevent conflict overlay
+                                    if (val !== null && c.assignedNode === val) {
+                                      return { ...c, assignedNode: null };
+                                    }
+                                    return c;
+                                  }));
+                                  triggerToast(`Assigned ${channel.name} to Camera Node ${val ? val : 'None (Manual slot fallback)'}`);
+                                }}
+                                className="bg-black font-semibold border border-white/10 text-[10px] text-gray-300 py-1 px-1.5 rounded cursor-pointer outline-none focus:border-white/30"
+                              >
+                                <option value="">Unassigned</option>
+                                <option value="1">Cam Node 1</option>
+                                <option value="2">Cam Node 2</option>
+                                <option value="3">Cam Node 3</option>
+                                <option value="4">Cam Node 4</option>
+                                <option value="5">Cam Node 5</option>
+                                <option value="6">Cam Node 6</option>
+                              </select>
+
+                              <button
+                                onClick={() => {
+                                  setChannels(channels.filter(c => c.id !== channel.id));
+                                  triggerToast(`Deleted channel: ${channel.name}`);
+                                }}
+                                className="p-1 rounded bg-red-950/40 border border-red-500/20 text-red-400 hover:bg-neutral-900 hover:text-red-300 cursor-pointer transition-colors"
+                                title="Delete Channel"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Staggered video items tags display */}
+                          <div className="flex flex-wrap gap-1">
+                            {channel.videoIds.slice(0, 3).map((vId, vIdx) => (
+                              <span key={vIdx} className="text-[8px] bg-white/5 px-1.5 py-0.5 rounded font-mono text-gray-400">
+                                {vId}
+                              </span>
+                            ))}
+                            {channel.videoIds.length > 3 && (
+                              <span className="text-[8px] bg-white/5 px-1.5 py-0.5 rounded font-mono text-gray-500">
+                                +{channel.videoIds.length - 3} more
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Dynamic Creator Option Tab Selector */}
+                  <div className="pt-3 border-t border-white/5 space-y-3">
+                    <div className="flex bg-black/40 border border-white/10 rounded-lg p-0.5">
+                      <button
+                        onClick={() => setCreatorTab('auto')}
+                        className={`flex-1 py-1 text-[10px] font-space font-bold uppercase rounded-md transition-all ${
+                          creatorTab === 'auto'
+                            ? 'bg-white/10 text-white font-semibold'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        ⚡ Auto-Import Channel
+                      </button>
+                      <button
+                        onClick={() => setCreatorTab('manual')}
+                        className={`flex-1 py-1 text-[10px] font-space font-bold uppercase rounded-md transition-all ${
+                          creatorTab === 'manual'
+                            ? 'bg-white/10 text-white font-semibold'
+                            : 'text-gray-400 hover:text-gray-200'
+                        }`}
+                      >
+                        ⚙️ Manual Build
+                      </button>
+                    </div>
+
+                    {creatorTab === 'auto' ? (
+                      <div className="space-y-2.5">
+                        <span className="text-[10px] font-mono text-gray-400 block leading-normal">
+                          Auto-fetch streams! Simply paste any YouTube link or handle. It will scrape, name, and compile all streams into your room loop.
+                        </span>
+                        
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="e.g. https://www.youtube.com/@i_kkoh/streams"
+                            value={importChannelUrl}
+                            onChange={(e) => setImportChannelUrl(e.target.value)}
+                            disabled={isImporting}
+                            className="w-full bg-black/45 border border-white/10 text-xs text-white py-2 pl-3 pr-8 rounded-lg outline-none focus:border-white/20 disabled:opacity-50"
+                          />
+                          {isImporting && (
+                            <div className="absolute right-2.5 top-2.5">
+                              <RefreshCw className="w-3.5 h-3.5 text-gray-400 animate-spin" />
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          onClick={async () => {
+                            if (!importChannelUrl.trim()) {
+                              triggerToast('Please provide a YouTube channel link or handle.');
+                              return;
+                            }
+                            setIsImporting(true);
+                            triggerToast('Analyzing YouTube channel feed...');
+                            try {
+                              const response = await fetch(`/api/youtube/streams?url=${encodeURIComponent(importChannelUrl.trim())}`);
+                              const data = await response.json();
+                              
+                              if (!response.ok || data.success === false) {
+                                triggerToast(data.error || 'YouTube parsing failed. Using manual build configuration.');
+                              } else {
+                                const newCh: StudyChannel = {
+                                  id: `custom-${Date.now()}`,
+                                  name: data.channelName,
+                                  videoIds: data.videoIds,
+                                  assignedNode: null
+                                };
+                                setChannels([...channels, newCh]);
+                                setImportChannelUrl('');
+                                triggerToast(`Imported ${data.videoIds.length} stream tracks from ${data.channelName}!`);
+                              }
+                            } catch (e) {
+                              triggerToast('Resolution error. Check network or enter details manually.');
+                            } finally {
+                              setIsImporting(false);
+                            }
+                          }}
+                          disabled={isImporting}
+                          className="w-full bg-neutral-200 hover:bg-neutral-300 disabled:opacity-50 text-black font-semibold text-[10px] uppercase py-2 rounded-lg font-space tracking-wider cursor-pointer transition-all flex items-center justify-center gap-1"
+                        >
+                          {isImporting ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              Parsing Stream Grid...
+                            </>
+                          ) : (
+                            'Fetch & Build Stream Loop'
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <input
+                          type="text"
+                          placeholder="e.g. Custom Study Cafe"
+                          value={newChannelName}
+                          onChange={(e) => setNewChannelName(e.target.value)}
+                          className="w-full bg-black/45 border border-white/10 text-xs text-white py-1.5 px-2.5 rounded-lg"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Video Links or 11-char IDs (comma-separated)"
+                          value={newChannelVideoIds}
+                          onChange={(e) => setNewChannelVideoIds(e.target.value)}
+                          className="w-full bg-black/45 border border-white/15 text-xs text-white py-1.5 px-2.5 rounded-lg font-mono placeholder:text-[10px]"
+                        />
+                        <button
+                          onClick={() => {
+                            if (!newChannelName.trim()) {
+                              triggerToast('Please provide a channel name!');
+                              return;
+                            }
+                            const rawInput = newChannelVideoIds.trim();
+                            if (!rawInput) {
+                              triggerToast('Please specify stream IDs/Links to play!');
+                              return;
+                            }
+                            const cleanIds = rawInput.split(/[,\s]+/)
+                              .map(url => {
+                                const trimmed = url.trim();
+                                if (!trimmed) return '';
+                                if (trimmed.includes('v=')) {
+                                  const parts = trimmed.split('v=');
+                                  if (parts[1]) return parts[1].split('&')[0];
+                                }
+                                if (trimmed.includes('youtu.be/')) {
+                                  const parts = trimmed.split('youtu.be/');
+                                  if (parts[1]) return parts[1].split('?')[0];
+                                }
+                                if (trimmed.includes('embed/')) {
+                                  const parts = trimmed.split('embed/');
+                                  if (parts[1]) return parts[1].split('?')[0];
+                                }
+                                return trimmed;
+                              })
+                              .filter(Boolean);
+
+                            if (cleanIds.length === 0) {
+                              triggerToast('Could not extract any valid YouTube stream ID coordinates.');
+                              return;
+                            }
+
+                            const addedCh = {
+                              id: `custom-${Date.now()}`,
+                              name: newChannelName.trim(),
+                              videoIds: cleanIds,
+                              assignedNode: null
+                            };
+
+                            setChannels([...channels, addedCh]);
+                            setNewChannelName('');
+                            setNewChannelVideoIds('');
+                            triggerToast(`Saved Custom Channel: ${addedCh.name}! Assign it to any Cam Node above.`);
+                          }}
+                          className="w-full bg-neutral-200 hover:bg-neutral-300 text-black font-semibold text-[10px] uppercase py-1.5 rounded-lg font-space tracking-wider cursor-pointer transition-all"
+                        >
+                          Save Channel Loop
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Grid link manager coordinates */}
@@ -1788,6 +2463,68 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* 7. HIGH-CRAFT MOTIVATIONAL SUCCESS QUOTE OVERLAY */}
+      <AnimatePresence>
+        {activeQuotePopup && (
+          <div className="fixed inset-x-0 top-10 z-[100] flex justify-center px-4 pointer-events-none">
+            <motion.div
+              initial={{ opacity: 0, y: -55, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.94 }}
+              className="pointer-events-auto max-w-lg bg-black/95 border border-emerald-500/30 rounded-2xl p-5 shadow-[0_12px_45px_rgba(16,185,129,0.3)] flex gap-4 backdrop-blur-xl relative"
+            >
+              <div className="w-1 self-stretch bg-gradient-to-b from-teal-400 to-emerald-500 rounded-full" />
+              
+              <div className="flex-grow space-y-2 select-none text-left">
+                <div className="flex items-center gap-1.5 text-[8px] uppercase tracking-wider text-emerald-400 font-mono font-bold">
+                  <span>Success Inspiration Received</span>
+                </div>
+                
+                <p className="font-serif italic text-xs md:text-sm text-gray-100 leading-relaxed font-semibold">
+                  "{activeQuotePopup}"
+                </p>
+                
+                <p className="text-[8px] text-gray-500 font-mono tracking-widest text-right uppercase">
+                  — Your Zen Study Buddy
+                </p>
+              </div>
+
+              <button
+                onClick={() => setActiveQuotePopup(null)}
+                className="self-start text-gray-400 hover:text-white p-1 hover:bg-white/5 rounded-lg transition-colors cursor-pointer"
+                title="Dismiss"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* DRAGGABLE ZEN COMPANION THERAPIST WIDGET */}
+      <CompanionBuddyChat
+        currentTimerMode={activeTimerMode}
+        timeLeft={timeLeft}
+        goalsCompleted={sessionLogs.reduce((acc, curr) => acc + (curr.goalsCompleted || 0), 0)}
+        goals={goals}
+        deadlines={deadlines}
+        studyPlans={studyPlans}
+        reminders={reminders}
+        onAddReminder={handleAddReminder}
+        onTriggerQuotePopup={(q) => {
+          setActiveQuotePopup(q);
+          setTimeout(() => {
+            setActiveQuotePopup(prev => prev === q ? null : prev);
+          }, 12000);
+        }}
+        onToggleSilenceReminders={(silence) => {
+          setAreRemindersSilenced(silence);
+          localStorage.setItem('aesthetic-room:reminders-silenced', String(silence));
+          triggerToast(silence ? 'Automated focus reminders muted.' : 'Automated focus reminders active.');
+        }}
+        areRemindersSilenced={areRemindersSilenced}
+      />
 
     </div>
   );
