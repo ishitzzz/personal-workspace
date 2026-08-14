@@ -194,27 +194,55 @@ export default function App() {
     const saved = localStorage.getItem('aesthetic-room:active-timer-mode');
     return (saved === 'focus' || saved === 'short' || saved === 'long') ? (saved as TimerMode) : 'focus';
   });
-  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [isRunning, setIsRunning] = useState<boolean>(() => {
+    const wasRunning = localStorage.getItem('aesthetic-room:is-running') === 'true';
+    const endTimestampStr = localStorage.getItem('aesthetic-room:timer-end-timestamp');
+    if (wasRunning && endTimestampStr) {
+      const endTimestamp = Number(endTimestampStr);
+      return !isNaN(endTimestamp) && endTimestamp > Date.now();
+    }
+    return false;
+  });
   const [durationFocus, setDurationFocus] = useState<number>(() => {
     const saved = localStorage.getItem('aesthetic-room:duration-focus');
-    return saved ? Number(saved) : 25;
+    return (saved !== null && !isNaN(Number(saved)) && Number(saved) > 0) ? Number(saved) : 25;
   });
   const [durationShort, setDurationShort] = useState<number>(() => {
     const saved = localStorage.getItem('aesthetic-room:duration-short');
-    return saved ? Number(saved) : 5;
+    return (saved !== null && !isNaN(Number(saved)) && Number(saved) > 0) ? Number(saved) : 5;
   });
   const [durationLong, setDurationLong] = useState<number>(() => {
     const saved = localStorage.getItem('aesthetic-room:duration-long');
-    return saved ? Number(saved) : 15;
+    return (saved !== null && !isNaN(Number(saved)) && Number(saved) > 0) ? Number(saved) : 15;
   });
   const [timeLeft, setTimeLeft] = useState<number>(() => {
-    const savedTime = localStorage.getItem('aesthetic-room:time-left');
-    if (savedTime !== null && !isNaN(Number(savedTime))) {
-      return Math.max(0, Number(savedTime));
+    const wasRunning = localStorage.getItem('aesthetic-room:is-running') === 'true';
+    const endTimestampStr = localStorage.getItem('aesthetic-room:timer-end-timestamp');
+    if (wasRunning && endTimestampStr) {
+      const endTimestamp = Number(endTimestampStr);
+      if (!isNaN(endTimestamp)) {
+        const remaining = Math.round((endTimestamp - Date.now()) / 1000);
+        if (remaining > 0) return remaining;
+      }
     }
-    const savedFocus = localStorage.getItem('aesthetic-room:duration-focus');
-    return (savedFocus ? Number(savedFocus) : 25) * 60;
+    const savedTime = localStorage.getItem('aesthetic-room:time-left');
+    if (savedTime !== null && !isNaN(Number(savedTime)) && Number(savedTime) > 0) {
+      return Number(savedTime);
+    }
+    const savedMode = localStorage.getItem('aesthetic-room:active-timer-mode') || 'focus';
+    const focusVal = localStorage.getItem('aesthetic-room:duration-focus');
+    const shortVal = localStorage.getItem('aesthetic-room:duration-short');
+    const longVal = localStorage.getItem('aesthetic-room:duration-long');
+    const targetMin = savedMode === 'focus' 
+      ? (focusVal ? Number(focusVal) : 25) 
+      : savedMode === 'short' 
+        ? (shortVal ? Number(shortVal) : 5) 
+        : (longVal ? Number(longVal) : 15);
+    return Math.max(1, targetMin) * 60;
   });
+  const [isEditingTime, setIsEditingTime] = useState<boolean>(false);
+  const [customHoursInput, setCustomHoursInput] = useState<string>('');
+  const [customMinsInput, setCustomMinsInput] = useState<string>('');
 
   // Multi-video Background state links (Holds up to 6 custom YouTube links or IDs)
   const [gridVideos, setGridVideos] = useState<string[]>(() => {
@@ -575,23 +603,49 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:active-timer-mode', activeTimerMode);
-  }, [activeTimerMode]);
+    if (user) {
+      syncWorkspaceDataSave({ activeTimerMode });
+    }
+  }, [activeTimerMode, user]);
+
+  useEffect(() => {
+    localStorage.setItem('aesthetic-room:is-running', String(isRunning));
+    if (isRunning) {
+      const endTimestamp = Date.now() + (timeLeft * 1000);
+      localStorage.setItem('aesthetic-room:timer-end-timestamp', String(endTimestamp));
+    } else {
+      localStorage.removeItem('aesthetic-room:timer-end-timestamp');
+    }
+  }, [isRunning, timeLeft]);
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:time-left', String(timeLeft));
-  }, [timeLeft]);
+    if (isRunning) {
+      const endTimestamp = Date.now() + (timeLeft * 1000);
+      localStorage.setItem('aesthetic-room:timer-end-timestamp', String(endTimestamp));
+    }
+  }, [timeLeft, isRunning]);
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:duration-focus', String(durationFocus));
-  }, [durationFocus]);
+    if (user) {
+      syncWorkspaceDataSave({ durationFocus });
+    }
+  }, [durationFocus, user]);
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:duration-short', String(durationShort));
-  }, [durationShort]);
+    if (user) {
+      syncWorkspaceDataSave({ durationShort });
+    }
+  }, [durationShort, user]);
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:duration-long', String(durationLong));
-  }, [durationLong]);
+    if (user) {
+      syncWorkspaceDataSave({ durationLong });
+    }
+  }, [durationLong, user]);
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:grid-videos', JSON.stringify(gridVideos));
@@ -717,41 +771,6 @@ export default function App() {
     const sub = setInterval(updateTime, 1000);
     return () => clearInterval(sub);
   }, []);
-
-  // Sync state variables across timer segments
-  const prevActiveModeRef = useRef<TimerMode>(activeTimerMode);
-  const prevDurationsRef = useRef<{ focus: number; short: number; long: number }>({
-    focus: durationFocus,
-    short: durationShort,
-    long: durationLong
-  });
-
-  // Only reset timeLeft when the user switches timer mode tabs (focus/short/long)
-  useEffect(() => {
-    if (prevActiveModeRef.current !== activeTimerMode) {
-      prevActiveModeRef.current = activeTimerMode;
-      const mins = activeTimerMode === 'focus' ? durationFocus : activeTimerMode === 'short' ? durationShort : durationLong;
-      setTimeLeft(mins * 60);
-      secondsSpentRef.current = 0; // Reset seconds accumulator whenever we switch timer segments!
-    }
-  }, [activeTimerMode, durationFocus, durationShort, durationLong]);
-
-  // Only reset timeLeft when the duration setting for the active mode is explicitly modified while idle
-  useEffect(() => {
-    const prev = prevDurationsRef.current;
-    const currentDur = activeTimerMode === 'focus' ? durationFocus : activeTimerMode === 'short' ? durationShort : durationLong;
-    const prevDur = activeTimerMode === 'focus' ? prev.focus : activeTimerMode === 'short' ? prev.short : prev.long;
-
-    if (currentDur !== prevDur && !isRunning) {
-      setTimeLeft(currentDur * 60);
-      secondsSpentRef.current = 0; // Reset seconds accumulator when duration is changed while idle
-    }
-    prevDurationsRef.current = {
-      focus: durationFocus,
-      short: durationShort,
-      long: durationLong
-    };
-  }, [durationFocus, durationShort, durationLong, isRunning, activeTimerMode]);
 
   const remindersRef = useRef(reminders);
   useEffect(() => {
@@ -1080,9 +1099,9 @@ export default function App() {
             if (data.state.deadlines !== undefined) setDeadlines(data.state.deadlines);
             if (data.state.sessionLogs !== undefined) setSessionLogs(data.state.sessionLogs);
             if (data.state.heatMapConfig !== undefined) setHeatMapConfig(data.state.heatMapConfig);
-            if (data.state.durationFocus !== undefined) setDurationFocus(data.state.durationFocus);
-            if (data.state.durationShort !== undefined) setDurationShort(data.state.durationShort);
-            if (data.state.durationLong !== undefined) setDurationLong(data.state.durationLong);
+            if (data.state.durationFocus !== undefined && !localStorage.getItem('aesthetic-room:duration-focus')) setDurationFocus(data.state.durationFocus);
+            if (data.state.durationShort !== undefined && !localStorage.getItem('aesthetic-room:duration-short')) setDurationShort(data.state.durationShort);
+            if (data.state.durationLong !== undefined && !localStorage.getItem('aesthetic-room:duration-long')) setDurationLong(data.state.durationLong);
             if (data.state.backgroundVideoIds !== undefined) setGridVideos(data.state.backgroundVideoIds);
             if (data.state.chatMessages !== undefined) setChatMessages(data.state.chatMessages);
             if (data.state.studyPlans !== undefined) setStudyPlans(data.state.studyPlans);
@@ -1627,7 +1646,11 @@ export default function App() {
                     {(['focus', 'short', 'long'] as const).map(m => (
                       <button
                         key={m}
-                        onClick={() => setActiveTimerMode(m)}
+                        onClick={() => {
+                          setActiveTimerMode(m);
+                          const targetMins = m === 'focus' ? durationFocus : m === 'short' ? durationShort : durationLong;
+                          setTimeLeft(targetMins * 60);
+                        }}
                         className={`px-3 py-1.5 rounded-full uppercase tracking-wider font-mono text-[9px] font-bold cursor-pointer transition-colors ${
                           activeTimerMode === m 
                             ? 'bg-neutral-200 text-black' 
@@ -1639,10 +1662,128 @@ export default function App() {
                     ))}
                   </div>
 
-                  {/* Substantial elegant Clock display text */}
-                  <h2 className="text-7xl sm:text-8xl md:text-9xl font-mono font-bold tracking-tighter text-white select-none z-10 leading-none drop-shadow-[0_12px_44px_rgba(0,0,0,0.85)]">
-                    {formatTimeSeconds(timeLeft)}
-                  </h2>
+                  {/* Substantial elegant Clock display text - Click to edit hours & minutes */}
+                  {!isEditingTime ? (
+                    <div 
+                      onClick={() => {
+                        if (!isRunning) {
+                          const h = Math.floor(timeLeft / 3600);
+                          const m = Math.floor((timeLeft % 3600) / 60);
+                          setCustomHoursInput(h > 0 ? String(h) : '');
+                          setCustomMinsInput(String(m));
+                          setIsEditingTime(true);
+                        }
+                      }}
+                      className={`group relative select-none z-10 transition-all ${
+                        isRunning ? '' : 'cursor-pointer'
+                      }`}
+                      title={isRunning ? 'Active Countdown' : 'Click to directly edit duration (hours & minutes)'}
+                    >
+                      <h2 className="text-7xl sm:text-8xl md:text-9xl font-mono font-bold tracking-tighter text-white select-none leading-none drop-shadow-[0_12px_44px_rgba(0,0,0,0.85)] group-hover:text-neutral-200 transition-colors">
+                        {formatTimeSeconds(timeLeft)}
+                      </h2>
+                      {!isRunning && (
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -bottom-4 left-1/2 -translate-x-1/2 text-[9px] font-mono text-neutral-400 whitespace-nowrap bg-black/80 px-2 py-0.5 rounded border border-white/10">
+                          Click to set custom hours/minutes
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="z-20 bg-black/90 border border-white/20 rounded-2xl p-4 shadow-2xl flex flex-col items-center gap-3 backdrop-blur-md">
+                      <div className="text-[10px] font-mono text-neutral-300 font-bold uppercase tracking-wider">
+                        Set Custom Duration
+                      </div>
+                      <div className="flex items-center gap-2 font-mono">
+                        <div className="flex flex-col items-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max="99"
+                            placeholder="0"
+                            value={customHoursInput}
+                            onChange={(e) => setCustomHoursInput(e.target.value)}
+                            className="w-16 bg-white/10 border border-white/20 rounded-lg p-2 text-center text-lg font-bold text-white outline-none focus:border-white"
+                          />
+                          <span className="text-[9px] text-gray-400 mt-1">Hours</span>
+                        </div>
+                        <span className="text-xl font-bold text-gray-400 mb-4">:</span>
+                        <div className="flex flex-col items-center">
+                          <input
+                            type="number"
+                            min="0"
+                            max="59"
+                            placeholder="25"
+                            value={customMinsInput}
+                            onChange={(e) => setCustomMinsInput(e.target.value)}
+                            className="w-16 bg-white/10 border border-white/20 rounded-lg p-2 text-center text-lg font-bold text-white outline-none focus:border-white"
+                          />
+                          <span className="text-[9px] text-gray-400 mt-1">Minutes</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 w-full pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const h = Math.max(0, Number(customHoursInput) || 0);
+                            const m = Math.max(0, Number(customMinsInput) || 0);
+                            const totalMinutes = (h * 60) + m;
+                            if (totalMinutes > 0) {
+                              const totalSeconds = totalMinutes * 60;
+                              if (activeTimerMode === 'focus') setDurationFocus(totalMinutes);
+                              else if (activeTimerMode === 'short') setDurationShort(totalMinutes);
+                              else setDurationLong(totalMinutes);
+                              setTimeLeft(totalSeconds);
+                              triggerToast(`Timer set to ${h > 0 ? `${h}h ` : ''}${m}m!`);
+                            }
+                            setIsEditingTime(false);
+                          }}
+                          className="flex-1 bg-white hover:bg-neutral-200 text-black text-xs font-bold py-1.5 px-3 rounded-lg transition-all cursor-pointer font-mono"
+                        >
+                          Apply
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingTime(false)}
+                          className="bg-white/10 hover:bg-white/20 text-gray-300 text-xs py-1.5 px-3 rounded-lg transition-all cursor-pointer font-mono"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quick Preset Badges */}
+                  {!isRunning && !isEditingTime && (
+                    <div className="flex items-center gap-1.5 mt-3 z-10">
+                      {[
+                        { label: '25m', mins: 25 },
+                        { label: '50m', mins: 50 },
+                        { label: '2h', mins: 120 },
+                        { label: '4h', mins: 240 },
+                        { label: '8h', mins: 480 },
+                        { label: '12h', mins: 720 },
+                        { label: '20h', mins: 1200 },
+                      ].map((preset) => (
+                        <button
+                          key={preset.label}
+                          onClick={() => {
+                            if (activeTimerMode === 'focus') setDurationFocus(preset.mins);
+                            else if (activeTimerMode === 'short') setDurationShort(preset.mins);
+                            else setDurationLong(preset.mins);
+                            setTimeLeft(preset.mins * 60);
+                            triggerToast(`Set timer to ${preset.label}!`);
+                          }}
+                          className={`text-[9px] font-mono px-2 py-0.5 rounded-md border transition-all cursor-pointer ${
+                            (activeTimerMode === 'focus' ? durationFocus : activeTimerMode === 'short' ? durationShort : durationLong) === preset.mins
+                              ? 'bg-white/20 border-white/40 text-white font-bold'
+                              : 'bg-black/40 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          {preset.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Bottom Controls panel */}
                   <div className="flex items-center gap-3.5 mt-8 z-10">
@@ -2558,7 +2699,11 @@ export default function App() {
                         min="1"
                         max="2880"
                         value={durationFocus}
-                        onChange={(e) => setDurationFocus(Math.max(1, Number(e.target.value)))}
+                        onChange={(e) => {
+                          const val = Math.max(1, Number(e.target.value));
+                          setDurationFocus(val);
+                          if (!isRunning && activeTimerMode === 'focus') setTimeLeft(val * 60);
+                        }}
                         className="w-full bg-black/40 border border-white/10 p-2 text-xs font-mono rounded-lg outline-none text-center"
                       />
                     </div>
@@ -2569,7 +2714,11 @@ export default function App() {
                         min="1"
                         max="1440"
                         value={durationShort}
-                        onChange={(e) => setDurationShort(Math.max(1, Number(e.target.value)))}
+                        onChange={(e) => {
+                          const val = Math.max(1, Number(e.target.value));
+                          setDurationShort(val);
+                          if (!isRunning && activeTimerMode === 'short') setTimeLeft(val * 60);
+                        }}
                         className="w-full bg-black/40 border border-white/10 p-2 text-xs font-mono rounded-lg outline-none text-center"
                       />
                     </div>
@@ -2580,7 +2729,11 @@ export default function App() {
                         min="1"
                         max="1440"
                         value={durationLong}
-                        onChange={(e) => setDurationLong(Math.max(1, Number(e.target.value)))}
+                        onChange={(e) => {
+                          const val = Math.max(1, Number(e.target.value));
+                          setDurationLong(val);
+                          if (!isRunning && activeTimerMode === 'long') setTimeLeft(val * 60);
+                        }}
                         className="w-full bg-black/40 border border-white/10 p-2 text-xs font-mono rounded-lg outline-none text-center"
                       />
                     </div>
