@@ -147,9 +147,53 @@ export default function App() {
   const [areRemindersSilenced, setAreRemindersSilenced] = useState<boolean>(() => {
     return localStorage.getItem('aesthetic-room:reminders-silenced') === 'true';
   });
+  const silenceRef = useRef(areRemindersSilenced);
+  useEffect(() => {
+    silenceRef.current = areRemindersSilenced;
+  }, [areRemindersSilenced]);
+
+  // Synchronized background video playback indices map representation
+  const [nodePlaybackIndices, setNodePlaybackIndices] = useState<{ [nodeIdx: number]: number }>(() => {
+    const initial: { [nodeIdx: number]: number } = {};
+    for (let i = 0; i < 6; i++) {
+      try {
+        const saved = localStorage.getItem(`aesthetic-room:node-state-${i}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (typeof parsed.index === 'number') {
+            initial[i] = parsed.index;
+          }
+        }
+      } catch (e) {}
+    }
+    return initial;
+  });
+
+  useEffect(() => {
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (
+        customEvent.detail &&
+        typeof customEvent.detail.nodeIdx === 'number' &&
+        typeof customEvent.detail.index === 'number'
+      ) {
+        setNodePlaybackIndices(prev => ({
+          ...prev,
+          [customEvent.detail.nodeIdx]: customEvent.detail.index
+        }));
+      }
+    };
+    window.addEventListener('aesthetic-room:node-index-updated', handleUpdate);
+    return () => {
+      window.removeEventListener('aesthetic-room:node-index-updated', handleUpdate);
+    };
+  }, []);
 
   // Focus Timer Parameters
-  const [activeTimerMode, setActiveTimerMode] = useState<TimerMode>('focus');
+  const [activeTimerMode, setActiveTimerMode] = useState<TimerMode>(() => {
+    const saved = localStorage.getItem('aesthetic-room:active-timer-mode');
+    return (saved === 'focus' || saved === 'short' || saved === 'long') ? (saved as TimerMode) : 'focus';
+  });
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [durationFocus, setDurationFocus] = useState<number>(() => {
     const saved = localStorage.getItem('aesthetic-room:duration-focus');
@@ -163,7 +207,14 @@ export default function App() {
     const saved = localStorage.getItem('aesthetic-room:duration-long');
     return saved ? Number(saved) : 15;
   });
-  const [timeLeft, setTimeLeft] = useState<number>(25 * 60);
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    const savedTime = localStorage.getItem('aesthetic-room:time-left');
+    if (savedTime !== null && !isNaN(Number(savedTime))) {
+      return Math.max(0, Number(savedTime));
+    }
+    const savedFocus = localStorage.getItem('aesthetic-room:duration-focus');
+    return (savedFocus ? Number(savedFocus) : 25) * 60;
+  });
 
   // Multi-video Background state links (Holds up to 6 custom YouTube links or IDs)
   const [gridVideos, setGridVideos] = useState<string[]>(() => {
@@ -391,6 +442,7 @@ export default function App() {
   const reminderSecondsRef = useRef<{ [key: string]: number }>({});
 
   const playSubtleSynthChime = () => {
+    if (silenceRef.current) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
@@ -520,6 +572,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('aesthetic-room:is-bottom-bar-open', String(isBottomBarOpen));
   }, [isBottomBarOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('aesthetic-room:active-timer-mode', activeTimerMode);
+  }, [activeTimerMode]);
+
+  useEffect(() => {
+    localStorage.setItem('aesthetic-room:time-left', String(timeLeft));
+  }, [timeLeft]);
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:duration-focus', String(durationFocus));
@@ -659,19 +719,39 @@ export default function App() {
   }, []);
 
   // Sync state variables across timer segments
-  useEffect(() => {
-    const mins = activeTimerMode === 'focus' ? durationFocus : activeTimerMode === 'short' ? durationShort : durationLong;
-    setTimeLeft(mins * 60);
-    secondsSpentRef.current = 0; // Reset seconds accumulator whenever we switch timer segments!
-  }, [activeTimerMode]);
+  const prevActiveModeRef = useRef<TimerMode>(activeTimerMode);
+  const prevDurationsRef = useRef<{ focus: number; short: number; long: number }>({
+    focus: durationFocus,
+    short: durationShort,
+    long: durationLong
+  });
 
+  // Only reset timeLeft when the user switches timer mode tabs (focus/short/long)
   useEffect(() => {
-    if (!isRunning) {
+    if (prevActiveModeRef.current !== activeTimerMode) {
+      prevActiveModeRef.current = activeTimerMode;
       const mins = activeTimerMode === 'focus' ? durationFocus : activeTimerMode === 'short' ? durationShort : durationLong;
       setTimeLeft(mins * 60);
+      secondsSpentRef.current = 0; // Reset seconds accumulator whenever we switch timer segments!
+    }
+  }, [activeTimerMode, durationFocus, durationShort, durationLong]);
+
+  // Only reset timeLeft when the duration setting for the active mode is explicitly modified while idle
+  useEffect(() => {
+    const prev = prevDurationsRef.current;
+    const currentDur = activeTimerMode === 'focus' ? durationFocus : activeTimerMode === 'short' ? durationShort : durationLong;
+    const prevDur = activeTimerMode === 'focus' ? prev.focus : activeTimerMode === 'short' ? prev.short : prev.long;
+
+    if (currentDur !== prevDur && !isRunning) {
+      setTimeLeft(currentDur * 60);
       secondsSpentRef.current = 0; // Reset seconds accumulator when duration is changed while idle
     }
-  }, [durationFocus, durationShort, durationLong]);
+    prevDurationsRef.current = {
+      focus: durationFocus,
+      short: durationShort,
+      long: durationLong
+    };
+  }, [durationFocus, durationShort, durationLong, isRunning, activeTimerMode]);
 
   const remindersRef = useRef(reminders);
   useEffect(() => {
@@ -695,7 +775,7 @@ export default function App() {
               const limit = rem.intervalMinutes * 60;
               if (count >= limit) {
                 reminderSecondsRef.current[rem.id] = 0;
-                if (!areRemindersSilenced) {
+                if (!silenceRef.current) {
                   playSubtleSynthChime();
                   triggerToast(`🔔 Zen Reminder: ${rem.title}! Keep your focus strong.`);
                 }
@@ -730,7 +810,9 @@ export default function App() {
         setTimeLeft((prev) => {
           if (prev <= 1) {
             setIsRunning(false);
-            playCompletionChime();
+            if (!silenceRef.current) {
+              playCompletionChime();
+            }
             triggerToast(`Session complete! Perfect focus maintained.`);
             
             // Reached completion. Flush any remaining seconds that are >= 30 seconds if any
@@ -743,7 +825,7 @@ export default function App() {
                     const updated = [...prevLogs];
                     updated[matchedLogIdx] = {
                       ...updated[matchedLogIdx],
-                      durationMinutes: updated[matchedLogIdx].durationMinutes + 1
+                      durationMinutes: updated[updated.length - 1].durationMinutes + 1
                     };
                     return updated;
                   } else {
@@ -763,7 +845,7 @@ export default function App() {
       }, 1000);
     }
     return () => clearInterval(sub);
-  }, [isRunning, activeTimerMode, durationFocus]);
+  }, [isRunning, activeTimerMode, durationFocus, areRemindersSilenced]);
 
   // Ambient track volume controls
   useEffect(() => {
@@ -2143,74 +2225,118 @@ export default function App() {
                         <span className="text-[9px] text-gray-600 font-mono block mt-1">Import a custom channel from YouTube below.</span>
                       </div>
                     ) : (
-                      channels.map((channel) => (
-                        <div key={channel.id} className="bg-black/35 border border-white/5 p-2.5 rounded-lg space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0 flex-grow">
-                              <span className="text-xs font-semibold text-gray-200 block truncate">
-                                {channel.name}
-                              </span>
-                              <span className="text-[9px] text-gray-500 font-mono block">
-                                {channel.videoIds.length} Loop streams loaded
-                              </span>
-                            </div>
-                            
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <select
-                                value={channel.assignedNode || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value === '' ? null : Number(e.target.value);
-                                  setChannels(channels.map(c => {
-                                    if (c.id === channel.id) {
-                                      return { ...c, assignedNode: val };
-                                    }
-                                    // Auto-unassign other channels for target node to prevent conflict overlay
-                                    if (val !== null && c.assignedNode === val) {
-                                      return { ...c, assignedNode: null };
-                                    }
-                                    return c;
-                                  }));
-                                  triggerToast(`Assigned ${channel.name} to Camera Node ${val ? val : 'None (Manual slot fallback)'}`);
-                                }}
-                                className="bg-black font-semibold border border-white/10 text-[10px] text-gray-300 py-1 px-1.5 rounded cursor-pointer outline-none focus:border-white/30"
-                              >
-                                <option value="">Unassigned</option>
-                                <option value="1">Cam Node 1</option>
-                                <option value="2">Cam Node 2</option>
-                                <option value="3">Cam Node 3</option>
-                                <option value="4">Cam Node 4</option>
-                                <option value="5">Cam Node 5</option>
-                                <option value="6">Cam Node 6</option>
-                              </select>
+                      channels.map((channel) => {
+                        const isAssigned = channel.assignedNode !== null && channel.assignedNode !== undefined;
+                        const nodeIdx = isAssigned ? (channel.assignedNode! - 1) : -1;
+                        const currentPlayingIndex = isAssigned ? (nodePlaybackIndices[nodeIdx] ?? 0) : 0;
+                        const safePlayingIndex = currentPlayingIndex < channel.videoIds.length ? currentPlayingIndex : 0;
 
-                              <button
-                                onClick={() => {
-                                  setChannels(channels.filter(c => c.id !== channel.id));
-                                  triggerToast(`Deleted channel: ${channel.name}`);
-                                }}
-                                className="p-1 rounded bg-red-950/40 border border-red-500/20 text-red-400 hover:bg-neutral-900 hover:text-red-300 cursor-pointer transition-colors"
-                                title="Delete Channel"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
+                        return (
+                          <div key={channel.id} className="bg-black/35 border border-white/5 p-2.5 rounded-lg space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0 flex-grow">
+                                <span className="text-xs font-semibold text-gray-200 block truncate">
+                                  {channel.name}
+                                </span>
+                                <span className="text-[9px] text-gray-500 font-mono block">
+                                  {channel.videoIds.length} Loop streams loaded
+                                </span>
+                              </div>
+                              
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <select
+                                  value={channel.assignedNode || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value === '' ? null : Number(e.target.value);
+                                    setChannels(channels.map(c => {
+                                      if (c.id === channel.id) {
+                                        return { ...c, assignedNode: val };
+                                      }
+                                      // Auto-unassign other channels for target node to prevent conflict overlay
+                                      if (val !== null && c.assignedNode === val) {
+                                        return { ...c, assignedNode: null };
+                                      }
+                                      return c;
+                                    }));
+                                    triggerToast(`Assigned ${channel.name} to Camera Node ${val ? val : 'None (Manual slot fallback)'}`);
+                                  }}
+                                  className="bg-black font-semibold border border-white/10 text-[10px] text-gray-300 py-1 px-1.5 rounded cursor-pointer outline-none focus:border-white/30"
+                                >
+                                  <option value="">Unassigned</option>
+                                  <option value="1">Cam Node 1</option>
+                                  <option value="2">Cam Node 2</option>
+                                  <option value="3">Cam Node 3</option>
+                                  <option value="4">Cam Node 4</option>
+                                  <option value="5">Cam Node 5</option>
+                                  <option value="6">Cam Node 6</option>
+                                </select>
 
-                          {/* Staggered video items tags display */}
-                          <div className="flex flex-wrap gap-1">
-                            {channel.videoIds.slice(0, 3).map((vId, vIdx) => (
-                              <span key={vIdx} className="text-[8px] bg-white/5 px-1.5 py-0.5 rounded font-mono text-gray-400">
-                                {vId}
-                              </span>
-                            ))}
-                            {channel.videoIds.length > 3 && (
-                              <span className="text-[8px] bg-white/5 px-1.5 py-0.5 rounded font-mono text-gray-500">
-                                +{channel.videoIds.length - 3} more
-                              </span>
+                                <button
+                                  onClick={() => {
+                                    setChannels(channels.filter(c => c.id !== channel.id));
+                                    triggerToast(`Deleted channel: ${channel.name}`);
+                                  }}
+                                  className="p-1 rounded bg-red-950/40 border border-red-500/20 text-red-400 hover:bg-neutral-900 hover:text-red-300 cursor-pointer transition-colors"
+                                  title="Delete Channel"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Staggered video items tags display */}
+                            <div className="flex flex-wrap gap-1">
+                              {channel.videoIds.slice(0, 3).map((vId, vIdx) => (
+                                <span key={vIdx} className={`text-[8px] px-1.5 py-0.5 rounded font-mono ${
+                                  isAssigned && safePlayingIndex === vIdx
+                                    ? 'bg-zinc-200 text-black font-semibold ring-1 ring-white/15 shadow'
+                                    : 'bg-white/5 text-gray-400'
+                                }`}>
+                                  {vId}
+                                </span>
+                              ))}
+                              {channel.videoIds.length > 3 && (
+                                <span className="text-[8px] bg-white/5 px-1.5 py-0.5 rounded font-mono text-gray-500">
+                                  +{channel.videoIds.length - 3} more
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Expanded interactive control HUD segment */}
+                            {isAssigned && (
+                              <div className="flex items-center justify-between border-t border-white/5 pt-2 mt-1.5 gap-2">
+                                <span className="text-[9px] font-mono tracking-wider text-neutral-450 select-none uppercase font-bold">
+                                  Looping: <span className="text-white bg-white/10 px-1 py-0.5 rounded font-mono text-[9px] ml-0.5">{safePlayingIndex + 1}</span>/<span className="text-gray-300">{channel.videoIds.length}</span>
+                                </span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    onClick={() => {
+                                      window.dispatchEvent(new CustomEvent('aesthetic-room:change-node-index', {
+                                        detail: { nodeIdx, action: 'prev' }
+                                      }));
+                                    }}
+                                    className="w-5 h-5 flex items-center justify-center text-[9px] bg-white/5 border border-white/15 text-gray-300 hover:text-white hover:bg-white/10 active:scale-90 rounded cursor-pointer transition-all select-none font-bold"
+                                    title="Previous video stream track"
+                                  >
+                                    ◀
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      window.dispatchEvent(new CustomEvent('aesthetic-room:change-node-index', {
+                                        detail: { nodeIdx, action: 'next' }
+                                      }));
+                                    }}
+                                    className="w-5 h-5 flex items-center justify-center text-[9px] bg-white/5 border border-white/15 text-gray-300 hover:text-white hover:bg-white/10 active:scale-90 rounded cursor-pointer transition-all select-none font-bold"
+                                    title="Next video stream track"
+                                  >
+                                    ▶
+                                  </button>
+                                </div>
+                              </div>
                             )}
                           </div>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
 
@@ -2430,7 +2556,7 @@ export default function App() {
                       <input
                         type="number"
                         min="1"
-                        max="240"
+                        max="2880"
                         value={durationFocus}
                         onChange={(e) => setDurationFocus(Math.max(1, Number(e.target.value)))}
                         className="w-full bg-black/40 border border-white/10 p-2 text-xs font-mono rounded-lg outline-none text-center"
@@ -2441,7 +2567,7 @@ export default function App() {
                       <input
                         type="number"
                         min="1"
-                        max="120"
+                        max="1440"
                         value={durationShort}
                         onChange={(e) => setDurationShort(Math.max(1, Number(e.target.value)))}
                         className="w-full bg-black/40 border border-white/10 p-2 text-xs font-mono rounded-lg outline-none text-center"
@@ -2452,7 +2578,7 @@ export default function App() {
                       <input
                         type="number"
                         min="1"
-                        max="180"
+                        max="1440"
                         value={durationLong}
                         onChange={(e) => setDurationLong(Math.max(1, Number(e.target.value)))}
                         className="w-full bg-black/40 border border-white/10 p-2 text-xs font-mono rounded-lg outline-none text-center"

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StudyChannel } from '../types';
 
 // Extract 11-character YouTube video ID safely
@@ -85,6 +85,20 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
   const playerRef = useRef<any>(null);
   const checkIntervalRef = useRef<any>(null);
 
+  // Read initial playlist index from localStorage for elegant UI count tracking
+  const [currentIndexState, setCurrentIndexState] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem(`aesthetic-room:node-state-${idx}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (typeof parsed.index === 'number') {
+          return parsed.index;
+        }
+      }
+    } catch (e) {}
+    return 0;
+  });
+
   useEffect(() => {
     let isMounted = true;
     let player: any = null;
@@ -121,6 +135,10 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
         console.warn('Failed restoring channel video state for node:', idx, e);
       }
 
+      setCurrentIndexState(savedIndex);
+      window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
+        detail: { nodeIdx: idx, index: savedIndex }
+      }));
       const activeVid = cleanIds[savedIndex] || vidId;
 
       try {
@@ -164,9 +182,17 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
                   if (currentIndex === playlistLength - 1) {
                     // Loop back to the first video (index 0) once entire stream loop is complete
                     event.target.playVideoAt(0);
+                    setCurrentIndexState(0);
+                    window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
+                      detail: { nodeIdx: idx, index: 0 }
+                    }));
                   } else {
                     // Otherwise continue onto the next livestream/video in queue
                     event.target.nextVideo();
+                    setCurrentIndexState(currentIndex + 1);
+                    window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
+                      detail: { nodeIdx: idx, index: currentIndex + 1 }
+                    }));
                   }
                 } catch (e) {
                   try {
@@ -197,6 +223,10 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
                   index = 0;
                 }
 
+                setCurrentIndexState(index);
+                window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
+                  detail: { nodeIdx: idx, index: index }
+                }));
                 const currentVidId = cleanIds[index] || vidId;
 
                 localStorage.setItem(
@@ -234,12 +264,56 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
     };
   }, [vidId, JSON.stringify(cleanIds), idx]);
 
+  useEffect(() => {
+    const handleRemoteChange = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail && customEvent.detail.nodeIdx === idx) {
+        const action = customEvent.detail.action;
+        if (playerRef.current && cleanIds.length > 1) {
+          try {
+            const length = cleanIds.length;
+            let targetIdx = currentIndexState;
+            if (action === 'next') {
+              targetIdx = (currentIndexState + 1) % length;
+            } else if (action === 'prev') {
+              targetIdx = (currentIndexState - 1 + length) % length;
+            }
+            playerRef.current.playVideoAt(targetIdx);
+            setCurrentIndexState(targetIdx);
+            window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
+              detail: { nodeIdx: idx, index: targetIdx }
+            }));
+            localStorage.setItem(
+              `aesthetic-room:node-state-${idx}`,
+              JSON.stringify({
+                videoId: cleanIds[targetIdx],
+                index: targetIdx,
+                time: 0
+              })
+            );
+          } catch (err) {
+            console.warn('Remote video switch failed:', err);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('aesthetic-room:change-node-index', handleRemoteChange);
+    return () => {
+      window.removeEventListener('aesthetic-room:change-node-index', handleRemoteChange);
+    };
+  }, [idx, JSON.stringify(cleanIds), currentIndexState]);
+
   return (
-    <div className="absolute inset-0 w-full h-full bg-slate-950">
+    <div className="absolute inset-0 w-full h-full bg-slate-950 select-none">
       <div id={containerId} className="absolute inset-0 w-full h-full scale-[1.08] pointer-events-none" />
-      <span className="absolute bottom-2 left-2 bg-black/85 border border-zinc-800 px-2 py-0.5 rounded text-[9px] font-mono tracking-wider text-neutral-200 uppercase shadow-md z-15">
-        Cam Node {idx + 1}: {displayName}
-      </span>
+      
+      {/* Node label overlay (sleek absolute positioning) */}
+      <div className="absolute bottom-2 left-2 flex flex-row items-center gap-1.5 z-20 pointer-events-none">
+        <span className="bg-black/85 border border-zinc-800 px-2 py-0.5 rounded text-[9px] font-mono tracking-wider text-neutral-200 uppercase shadow-md select-none">
+          Cam Node {idx + 1}: {displayName}
+        </span>
+      </div>
     </div>
   );
 });

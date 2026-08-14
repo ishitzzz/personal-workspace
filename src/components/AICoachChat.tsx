@@ -5,6 +5,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Send, Brain, Clock, Coffee, Sparkles, Paperclip, FileText, CheckCircle, Trash2, ShieldAlert } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { StudyPlan, StudyReminder } from '../types';
 
 interface Message {
@@ -235,10 +237,14 @@ export default function AICoachChat({
                 : 'bg-white/5 border border-white/5 text-gray-200 self-start mr-auto'
             }`}
           >
-            <span className="text-[8px] uppercase tracking-wider text-gray-400 font-bold mb-1">
+            <span className="text-[8px] uppercase tracking-wider text-gray-400 font-bold mb-1 select-none">
               {m.role === 'user' ? 'Student' : activeModel === 'qwen/qwen3-32b' ? 'Qwen Planner' : activeModel === 'openai/gpt-oss-20b' ? 'Zen Therapist' : 'Coach Llama'}
             </span>
-            <p className="leading-relaxed whitespace-pre-wrap">{m.content}</p>
+            <div className="markdown-body select-text text-left">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {m.content}
+              </ReactMarkdown>
+            </div>
           </div>
         ))}
         {isLoading && (
@@ -320,6 +326,79 @@ export default function AICoachChat({
           <Send className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Elegant Academic Markdown & Table Styles scoped to Coach planner */}
+      <style>{`
+        .markdown-body {
+          font-family: inherit;
+          line-height: 1.62;
+          color: #d1d5db; /* gray-300 */
+        }
+        .markdown-body p {
+          margin-top: 0px;
+          margin-bottom: 8px;
+        }
+        .markdown-body p:last-child {
+          margin-bottom: 0px;
+        }
+        .markdown-body ul {
+          list-style-type: disc !important;
+          padding-left: 18px !important;
+          margin-bottom: 8px;
+        }
+        .markdown-body ol {
+          list-style-type: decimal !important;
+          padding-left: 18px !important;
+          margin-bottom: 8px;
+        }
+        .markdown-body li {
+          margin-bottom: 4px;
+        }
+        .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+          font-weight: bold;
+          color: #ffffff;
+          margin-top: 12px;
+          margin-bottom: 4px;
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .markdown-body table {
+          width: 100%;
+          border-collapse: collapse;
+          margin: 12px 0px;
+          font-size: 10px;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .markdown-body th {
+          background-color: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          padding: 6px 10px;
+          font-weight: bold;
+          text-align: left;
+          color: #ffffff;
+        }
+        .markdown-body td {
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 6px 10px;
+          background-color: rgba(0, 0, 0, 0.25);
+        }
+        .markdown-body blockquote {
+          border-left: 3px solid rgba(255, 255, 255, 0.3);
+          padding-left: 8px;
+          color: #9ca3af;
+          font-style: italic;
+          margin-bottom: 8px;
+        }
+        .markdown-body code {
+          font-family: monospace;
+          font-size: 9px;
+          background-color: rgba(255, 255, 255, 0.08);
+          padding: 2px 4px;
+          border-radius: 4px;
+          color: #ffffff;
+        }
+      `}</style>
     </div>
   );
 }

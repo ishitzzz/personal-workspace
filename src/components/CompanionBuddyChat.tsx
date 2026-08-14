@@ -6,6 +6,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Cat, Send, X, GripHorizontal, BellOff, Volume2 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { StudyPlan, StudyReminder } from '../types';
 
 interface Message {
@@ -64,38 +66,155 @@ export default function CompanionBuddyChat({
     ];
   });
 
+  // TTS Speech Synthesis State
+  const [playingMessageIdx, setPlayingMessageIdx] = useState<number | null>(null);
+  const [isSpeechPaused, setIsSpeechPaused] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
 
-  // Persist conversation history
+  // Stop TTS if user minimizes or opens dialog to keep it clean and non-eccentric
+  useEffect(() => {
+    window.speechSynthesis?.cancel();
+    setPlayingMessageIdx(null);
+    setIsSpeechPaused(false);
+  }, [isOpen]);
+
+  // Clean TTS cleanups on unmount
+  useEffect(() => {
+    return () => {
+      window.speechSynthesis?.cancel();
+    };
+  }, []);
+
+  // Correct loop-safe local storage and parent synchronizer
   useEffect(() => {
     localStorage.setItem('zen-buddy:conversation-history', JSON.stringify(history));
     if (onHistoryChange) {
-      // Avoid recursive loops
-      const savedInParent = localStorage.getItem('zen-buddy:conversation-history');
-      if (savedInParent !== JSON.stringify(history)) {
-        onHistoryChange(history);
-      }
+      onHistoryChange(history);
     }
-  }, [history, onHistoryChange]);
+  }, [history]);
 
   // Synchronize history when parent loads a synced profile
   useEffect(() => {
-    if (buddyHistory && buddyHistory.length > 0) {
+    if (buddyHistory && buddyHistory.length >= 0) {
       const isDifferent = buddyHistory.length !== history.length || 
         JSON.stringify(buddyHistory) !== JSON.stringify(history);
       if (isDifferent) {
-        setHistory(buddyHistory);
+        setHistory(buddyHistory.length > 0 ? buddyHistory : [
+          {
+            role: 'assistant',
+            content: "Hello, my friend. I'm your Llama-powered Zen Study Buddy and Therapist. 🌸\n\nIf you're feeling overwhelmed, anxious, distracted, or find yourself spiraling, please talk to me. I'm designed to listen, understand, and reason through things with genuine warmth. How are you holding up today?"
+          }
+        ]);
       }
     }
   }, [buddyHistory]);
 
+  // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [history, isLoading]);
+
+  // Scroll to bottom immediately on opening dialog to start from where spoke last
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => {
+        scrollRef.current?.scrollIntoView({ behavior: 'instant' });
+      }, 100);
+    }
+  }, [isOpen]);
+
+  // Core TTS Speach Engine Implementation
+  const handleToggleSpeak = (textToSpeak: string, idx: number) => {
+    if (!window.speechSynthesis) return;
+
+    // Clean out custom automation brackets/tags before speaking for an extremely clean audio experience
+    const cleanSpeechText = textToSpeak
+      .replace(/\[\[QUOTE:.*?\]\]/gi, '')
+      .replace(/\[\[SET_REMINDER:.*?\]\]/gi, '')
+      .replace(/\[\[CREATE_PLAN:.*?\]\]/gi, '')
+      .trim();
+
+    if (playingMessageIdx === idx) {
+      if (isSpeechPaused) {
+        window.speechSynthesis.resume();
+        setIsSpeechPaused(false);
+      } else {
+        window.speechSynthesis.pause();
+        setIsSpeechPaused(true);
+      }
+    } else {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(cleanSpeechText);
+      utteranceRef.current = utterance;
+      
+      const voices = window.speechSynthesis.getVoices();
+      // Try to find natural, warm, and highly expressive voices
+      const preferredKeywords = [
+        'natural',            // Microsoft Natural voices (Jenny Online, Aria Online)
+        'samantha',           // Classic warm expressive Apple macOS/iOS voice
+        'google us english',  // High quality Google cloud-backed synthesizers
+        'jenny',
+        'aria',
+        'daniel',
+        'moira',
+        'karen'
+      ];
+      
+      let targetVoice = null;
+      for (const keyword of preferredKeywords) {
+        const found = voices.find(v => 
+          v.name.toLowerCase().includes(keyword) && 
+          (v.lang.startsWith('en-US') || v.lang.startsWith('en'))
+        );
+        if (found) {
+          targetVoice = found;
+          break;
+        }
+      }
+      
+      if (!targetVoice) {
+        targetVoice = voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en'));
+      }
+
+      if (targetVoice) {
+        utterance.voice = targetVoice;
+      }
+
+      // Elegant expressive calibration for Therapist/Study Llama buddy:
+      // Slightly more relaxed, comfortable rate (0.93) and warm pitch level (1.04)
+      utterance.rate = 0.93;
+      utterance.pitch = 1.04;
+
+      utterance.onend = () => {
+        setPlayingMessageIdx(null);
+        setIsSpeechPaused(false);
+      };
+      utterance.onerror = () => {
+        setPlayingMessageIdx(null);
+        setIsSpeechPaused(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
+      setPlayingMessageIdx(idx);
+      setIsSpeechPaused(false);
+    }
+  };
+
+  const handlePlayAllAssistantMessages = () => {
+    const jointText = history
+      .filter(m => m.role === 'assistant')
+      .map(m => m.content)
+      .join('\n\n');
+    if (jointText) {
+      handleToggleSpeak(jointText, -999);
+    }
+  };
 
   const handleSendMessage = async (customText?: string) => {
     const text = (customText || inputMsg).trim();
@@ -113,7 +232,7 @@ export default function CompanionBuddyChat({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text,
-          history: newHistory.slice(-10),
+          history: newHistory.slice(-40),
           isBuddyCounselor: true,
           model: 'llama-3.3-70b-versatile',
           context: {
@@ -230,7 +349,6 @@ export default function CompanionBuddyChat({
             key="buddy-chat-floating-dialog"
             id="draggable-buddy-chat-panel"
             drag
-            dragHandleClassName="draggable-drag-handle-bar"
             dragMomentum={false}
             dragElastic={0}
             dragConstraints={{ left: -1400, right: 1400, top: -1400, bottom: 1400 }}
@@ -250,6 +368,27 @@ export default function CompanionBuddyChat({
               </div>
 
               <div className="flex items-center gap-1">
+                {/* Global Read Conversation History Button */}
+                {history.some(m => m.role === 'assistant') && (
+                  <button
+                    onClick={handlePlayAllAssistantMessages}
+                    className="px-2 py-1 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white transition-all flex items-center gap-1 cursor-pointer font-mono text-[9px] font-bold mr-1"
+                    title="Synthesize conversation stream to audio TTS"
+                  >
+                    {playingMessageIdx === -999 ? (
+                      <>
+                        <span className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
+                        <span>{isSpeechPaused ? 'RESUME ALL' : 'PAUSE ALL'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="w-2.5 h-2.5 text-zinc-400" />
+                        <span>PLAY CHAT</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
                 {onToggleSilenceReminders && (
                   <button
                     onClick={() => onToggleSilenceReminders(!areRemindersSilenced)}
@@ -289,10 +428,37 @@ export default function CompanionBuddyChat({
                       : 'bg-zinc-900 border border-zinc-850 text-neutral-200 self-start mr-auto'
                   }`}
                 >
-                  <span className="text-[8px] font-bold tracking-wider text-zinc-500 uppercase mb-1 pointer-events-none select-none">
-                    {m.role === 'user' ? 'student' : 'buddy'}
-                  </span>
-                  <p className="whitespace-pre-wrap break-words select-text text-[11px] sm:text-xs text-left">{m.content}</p>
+                  <div className="flex items-center justify-between gap-6 mb-1.5 select-none">
+                    <span className="text-[8px] font-bold tracking-wider text-zinc-500 uppercase pointer-events-none">
+                      {m.role === 'user' ? 'student' : 'buddy'}
+                    </span>
+                    
+                    {m.role === 'assistant' && (
+                      <button
+                        onClick={() => handleToggleSpeak(m.content, idx)}
+                        className="text-[8px] text-zinc-400 hover:text-white px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-850 hover:border-zinc-700 transition-all flex items-center gap-1 cursor-pointer font-bold uppercase tracking-wider h-5"
+                        title="Read this message response out loud"
+                      >
+                        {playingMessageIdx === idx ? (
+                          <>
+                            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-ping" />
+                            <span>{isSpeechPaused ? 'RESUME' : 'PAUSE'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-2.5 h-2.5 text-zinc-400" />
+                            <span>SPEAK</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="markdown-body select-text text-left text-[11px] sm:text-xs">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {m.content}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               ))}
 
@@ -337,14 +503,6 @@ export default function CompanionBuddyChat({
 
             {/* Input form area */}
             <div className="p-3 flex-shrink-0 bg-zinc-950 border-t border-zinc-900 flex items-center justify-between gap-2">
-              <button
-                onClick={clearHistory}
-                className="p-2.5 rounded-xl border border-zinc-850 text-zinc-400 hover:text-white hover:bg-zinc-900 transition-all cursor-pointer animate-fade"
-                title="Reset conversation"
-              >
-                <X className="w-4 h-4" />
-              </button>
-
               <input
                 type="text"
                 placeholder="Talk to your Llama Zen Buddy..."
@@ -394,6 +552,77 @@ export default function CompanionBuddyChat({
               .no-scrollbar-buddy {
                 -ms-overflow-style: none !important;
                 scrollbar-width: none !important;
+              }
+
+              /* Elegant Academic Markdown & Table Styles */
+              .markdown-body {
+                font-family: inherit;
+                line-height: 1.6;
+                color: #e4e4e7; /* zinc-200 */
+              }
+              .markdown-body p {
+                margin-top: 0px;
+                margin-bottom: 8px;
+              }
+              .markdown-body p:last-child {
+                margin-bottom: 0px;
+              }
+              .markdown-body ul {
+                list-style-type: disc !important;
+                padding-left: 18px !important;
+                margin-bottom: 8px;
+              }
+              .markdown-body ol {
+                list-style-type: decimal !important;
+                padding-left: 18px !important;
+                margin-bottom: 8px;
+              }
+              .markdown-body li {
+                margin-bottom: 4px;
+              }
+              .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+                font-weight: bold;
+                color: #ffffff;
+                margin-top: 12px;
+                margin-bottom: 4px;
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+              }
+              .markdown-body table {
+                width: 100%;
+                border-collapse: collapse;
+                margin: 12px 0px;
+                font-size: 10px;
+                border: 1px solid #27272a;
+              }
+              .markdown-body th {
+                background-color: #09090b;
+                border: 1px solid #27272a;
+                padding: 6px 10px;
+                font-weight: bold;
+                text-align: left;
+                color: #ffffff;
+              }
+              .markdown-body td {
+                border: 1px solid #27272a;
+                padding: 6px 10px;
+                background-color: #121214;
+              }
+              .markdown-body blockquote {
+                border-left: 3px solid #3f3f46;
+                padding-left: 8px;
+                color: #a1a1aa;
+                font-style: italic;
+                margin-bottom: 8px;
+              }
+              .markdown-body code {
+                font-family: monospace;
+                font-size: 9px;
+                background-color: #18181b;
+                padding: 2px 4px;
+                border-radius: 4px;
+                color: #f4f4f5;
               }
             `}</style>
           </motion.div>
