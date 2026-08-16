@@ -60,21 +60,21 @@ export default function FloatingCamera({
           const saved2 = localStorage.getItem('aesthetic-room:active-device-id-2');
 
           if (saved1 && cams.some(c => c.deviceId === saved1)) {
-            setActiveDeviceId1(saved1);
+            setActiveDeviceId1(prev => (prev === saved1 ? prev : saved1));
           } else {
             const defaultId = cams[0].deviceId;
-            setActiveDeviceId1(defaultId);
+            setActiveDeviceId1(prev => (prev === defaultId ? prev : defaultId));
             localStorage.setItem('aesthetic-room:active-device-id-1', defaultId);
           }
 
           if (saved2 && cams.some(c => c.deviceId === saved2)) {
-            setActiveDeviceId2(saved2);
+            setActiveDeviceId2(prev => (prev === saved2 ? prev : saved2));
           } else if (cams.length > 1) {
             const secondId = cams[1].deviceId;
-            setActiveDeviceId2(secondId);
+            setActiveDeviceId2(prev => (prev === secondId ? prev : secondId));
             localStorage.setItem('aesthetic-room:active-device-id-2', secondId);
           } else {
-            setActiveDeviceId2('');
+            setActiveDeviceId2(prev => (prev === '' ? prev : ''));
           }
         }
       } catch (e) {

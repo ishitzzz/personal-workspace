@@ -84,6 +84,8 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
   const containerId = `yt-player-slot-${idx}`;
   const playerRef = useRef<any>(null);
   const checkIntervalRef = useRef<any>(null);
+  const initializedKeyRef = useRef<string>('');
+  const currentIndexStateRef = useRef<number>(0);
 
   // Read initial playlist index from localStorage for elegant UI count tracking
   const [currentIndexState, setCurrentIndexState] = useState<number>(() => {
@@ -100,14 +102,23 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
   });
 
   useEffect(() => {
+    currentIndexStateRef.current = currentIndexState;
+  }, [currentIndexState]);
+
+  useEffect(() => {
     let isMounted = true;
     let player: any = null;
+
+    const currentKey = `${idx}-${vidId}-${cleanIds.join(',')}`;
+    if (initializedKeyRef.current === currentKey && playerRef.current) {
+      return;
+    }
 
     const initPlayer = async () => {
       await loadYoutubeApi();
       if (!isMounted) return;
 
-      // Unmount previous slot player if any
+      // Unmount previous slot player if key fundamentally changed
       if (playerRef.current) {
         try { playerRef.current.destroy(); } catch (e) {}
         playerRef.current = null;
@@ -135,11 +146,13 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
         console.warn('Failed restoring channel video state for node:', idx, e);
       }
 
-      setCurrentIndexState(savedIndex);
-      window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
-        detail: { nodeIdx: idx, index: savedIndex }
-      }));
+      if (currentIndexStateRef.current !== savedIndex) {
+        setCurrentIndexState(savedIndex);
+        currentIndexStateRef.current = savedIndex;
+      }
+
       const activeVid = cleanIds[savedIndex] || vidId;
+      initializedKeyRef.current = currentKey;
 
       try {
         player = new (window as any).YT.Player(containerId, {
@@ -156,7 +169,7 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
             start: savedTime,
             playsinline: 1,
             playlist: cleanIds.join(','),
-            loop: 0
+            loop: 1
           },
           events: {
             onReady: (event: any) => {
@@ -164,13 +177,10 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
               event.target.mute();
               event.target.playVideo();
 
-              if (cleanIds.length > 1) {
-                event.target.loadPlaylist({
-                  playlist: cleanIds,
-                  index: savedIndex,
-                  startSeconds: savedTime
-                });
-                event.target.setLoop(true);
+              if (savedIndex > 0 && cleanIds.length > 1) {
+                try {
+                  event.target.playVideoAt(savedIndex);
+                } catch (e) {}
               }
             },
             onStateChange: (event: any) => {
@@ -179,19 +189,13 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
                 try {
                   const currentIndex = event.target.getPlaylistIndex();
                   const playlistLength = cleanIds.length;
-                  if (currentIndex === playlistLength - 1) {
-                    // Loop back to the first video (index 0) once entire stream loop is complete
-                    event.target.playVideoAt(0);
-                    setCurrentIndexState(0);
+                  const nextIdx = (currentIndex + 1) % playlistLength;
+                  event.target.playVideoAt(nextIdx);
+                  if (currentIndexStateRef.current !== nextIdx) {
+                    setCurrentIndexState(nextIdx);
+                    currentIndexStateRef.current = nextIdx;
                     window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
-                      detail: { nodeIdx: idx, index: 0 }
-                    }));
-                  } else {
-                    // Otherwise continue onto the next livestream/video in queue
-                    event.target.nextVideo();
-                    setCurrentIndexState(currentIndex + 1);
-                    window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
-                      detail: { nodeIdx: idx, index: currentIndex + 1 }
+                      detail: { nodeIdx: idx, index: nextIdx }
                     }));
                   }
                 } catch (e) {
@@ -206,11 +210,11 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
 
         playerRef.current = player;
 
-        // Periodic state-saving loop every 4 seconds
+        // Periodic state-saving loop every 6 seconds (only saves to localStorage, avoids state spam)
+        if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
         checkIntervalRef.current = setInterval(() => {
           if (player && typeof player.getPlayerState === 'function') {
             const state = player.getPlayerState();
-            // 1 represents PLAYING in YouTube API
             if (state === 1) {
               try {
                 const time = player.getCurrentTime();
@@ -223,10 +227,14 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
                   index = 0;
                 }
 
-                setCurrentIndexState(index);
-                window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
-                  detail: { nodeIdx: idx, index: index }
-                }));
+                if (currentIndexStateRef.current !== index) {
+                  setCurrentIndexState(index);
+                  currentIndexStateRef.current = index;
+                  window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
+                    detail: { nodeIdx: idx, index: index }
+                  }));
+                }
+
                 const currentVidId = cleanIds[index] || vidId;
 
                 localStorage.setItem(
@@ -242,7 +250,7 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
               }
             }
           }
-        }, 4000);
+        }, 6000);
 
       } catch (err) {
         console.warn('Failed instantiating YT element player for index:', idx, err);
@@ -256,10 +264,11 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
       if (checkIntervalRef.current) {
         clearInterval(checkIntervalRef.current);
       }
-      if (playerRef.current) {
+      if (playerRef.current && initializedKeyRef.current !== currentKey) {
         try {
           playerRef.current.destroy();
         } catch (e) {}
+        playerRef.current = null;
       }
     };
   }, [vidId, JSON.stringify(cleanIds), idx]);
@@ -272,14 +281,15 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
         if (playerRef.current && cleanIds.length > 1) {
           try {
             const length = cleanIds.length;
-            let targetIdx = currentIndexState;
+            let targetIdx = currentIndexStateRef.current;
             if (action === 'next') {
-              targetIdx = (currentIndexState + 1) % length;
+              targetIdx = (currentIndexStateRef.current + 1) % length;
             } else if (action === 'prev') {
-              targetIdx = (currentIndexState - 1 + length) % length;
+              targetIdx = (currentIndexStateRef.current - 1 + length) % length;
             }
             playerRef.current.playVideoAt(targetIdx);
             setCurrentIndexState(targetIdx);
+            currentIndexStateRef.current = targetIdx;
             window.dispatchEvent(new CustomEvent('aesthetic-room:node-index-updated', {
               detail: { nodeIdx: idx, index: targetIdx }
             }));
@@ -302,7 +312,7 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
     return () => {
       window.removeEventListener('aesthetic-room:change-node-index', handleRemoteChange);
     };
-  }, [idx, JSON.stringify(cleanIds), currentIndexState]);
+  }, [idx, JSON.stringify(cleanIds)]);
 
   return (
     <div className="absolute inset-0 w-full h-full bg-slate-950 select-none">
@@ -316,6 +326,12 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
       </div>
     </div>
   );
+}, (prevProps, nextProps) => {
+  return prevProps.idx === nextProps.idx &&
+         prevProps.vidId === nextProps.vidId &&
+         prevProps.displayName === nextProps.displayName &&
+         prevProps.cleanIds.length === nextProps.cleanIds.length &&
+         prevProps.cleanIds.every((id, i) => id === nextProps.cleanIds[i]);
 });
 
 interface BackgroundGridProps {

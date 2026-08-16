@@ -177,10 +177,15 @@ export default function App() {
         typeof customEvent.detail.nodeIdx === 'number' &&
         typeof customEvent.detail.index === 'number'
       ) {
-        setNodePlaybackIndices(prev => ({
-          ...prev,
-          [customEvent.detail.nodeIdx]: customEvent.detail.index
-        }));
+        setNodePlaybackIndices(prev => {
+          if (prev[customEvent.detail.nodeIdx] === customEvent.detail.index) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [customEvent.detail.nodeIdx]: customEvent.detail.index
+          };
+        });
       }
     };
     window.addEventListener('aesthetic-room:node-index-updated', handleUpdate);
