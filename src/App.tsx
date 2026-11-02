@@ -34,6 +34,7 @@ import {
   Video,
   BellRing,
   Eye,
+  EyeOff,
   LayoutGrid,
   Calendar,
   Grid,
@@ -54,7 +55,6 @@ import CalendarDeadlines from './components/CalendarDeadlines';
 import SyllabusManager from './components/SyllabusManager';
 import AICoachChat from './components/AICoachChat';
 import FloatingCamera from './components/FloatingCamera';
-import CompanionBuddyChat from './components/CompanionBuddyChat';
 import BackgroundGrid from './components/BackgroundGrid';
 import StudyPlansManager from './components/StudyPlansManager';
 import { zenAudioSynthInstance } from './lib/audioSynth';
@@ -272,6 +272,11 @@ export default function App() {
   const [bgOpacity, setBgOpacity] = useState<number>(() => {
     const saved = localStorage.getItem('aesthetic-room:bg-opacity');
     return saved ? Number(saved) : 30;
+  });
+
+  // Zen Pure Video View - Hide all UI elements, text, and buttons completely
+  const [isHideAllUI, setIsHideAllUI] = useState<boolean>(() => {
+    return localStorage.getItem('aesthetic-room:hide-all-ui') === 'true';
   });
 
   const [channels, setChannels] = useState<StudyChannel[]>(() => {
@@ -523,15 +528,6 @@ export default function App() {
     }
   });
 
-  // Saved companion study buddy chat history (Llama)
-  const [buddyHistory, setBuddyHistory] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem('zen-buddy:conversation-history');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
 
   // Vision observer controls
   const [isAiMonitorActive, setIsAiMonitorActive] = useState<boolean>(true);
@@ -722,12 +718,6 @@ export default function App() {
     }
   }, [channels, user]);
 
-  useEffect(() => {
-    localStorage.setItem('zen-buddy:conversation-history', JSON.stringify(buddyHistory));
-    if (user) {
-      syncWorkspaceDataSave({ buddyHistory });
-    }
-  }, [buddyHistory, user]);
 
   useEffect(() => {
     localStorage.setItem('aesthetic-room:notepad-text', notepadText);
@@ -1111,8 +1101,7 @@ export default function App() {
             if (data.state.chatMessages !== undefined) setChatMessages(data.state.chatMessages);
             if (data.state.studyPlans !== undefined) setStudyPlans(data.state.studyPlans);
             if (data.state.reminders !== undefined) setReminders(data.state.reminders);
-            if (data.state.channels !== undefined) setChannels(data.state.channels);
-            if (data.state.buddyHistory !== undefined) setBuddyHistory(data.state.buddyHistory);
+
           }
         }
       } catch (err) {
@@ -1167,7 +1156,6 @@ export default function App() {
         setStudyPlans(data.state.studyPlans || []);
         setReminders(data.state.reminders || []);
         setChannels(data.state.channels || []);
-        setBuddyHistory(data.state.buddyHistory || []);
       }
 
       setAuthMode('none');
@@ -1203,8 +1191,7 @@ export default function App() {
       ]);
       localStorage.removeItem('aesthetic-room:chat-history');
 
-      setBuddyHistory([]);
-      localStorage.removeItem('zen-buddy:conversation-history');
+
  
       syncWorkspaceDataSave({
         goals: cleanGoals,
@@ -1425,17 +1412,45 @@ export default function App() {
     <div className="relative min-h-screen w-full bg-slate-950 font-sans text-white overflow-x-hidden selection:bg-white/20">
       
       {/* 1. Curated Multigrid Atmosphere Background Stream Layout */}
-      <BackgroundGrid gridVideos={gridVideos} activeGridCount={activeGridCount} channels={channels} />
+      <BackgroundGrid gridVideos={gridVideos} activeGridCount={activeGridCount} channels={channels} hideLabels={isHideAllUI} />
+
+      {/* 0. ZEN PURE VIDEO VIEW TOGGLE BUTTON (DRAGGABLE MINIMAL CORNER BUTTON WITH NO TEXT) */}
+      <motion.button
+        drag
+        dragSnapToOrigin={false}
+        dragMomentum={false}
+        onClick={() => {
+          setIsHideAllUI(prev => {
+            const next = !prev;
+            localStorage.setItem('aesthetic-room:hide-all-ui', String(next));
+            if (next) {
+              triggerToast('Zen Pure Video View: All UI buttons and text hidden.');
+            } else {
+              triggerToast('Restored workspace interface.');
+            }
+            return next;
+          });
+        }}
+        className="fixed top-4 right-4 z-[200] w-8 h-8 rounded-full flex items-center justify-center bg-black/60 border border-white/20 text-gray-300 hover:text-white hover:bg-black/80 backdrop-blur-md shadow-md cursor-pointer select-none outline-none focus:outline-none focus:ring-0 active:ring-0"
+        title={isHideAllUI ? "Show UI controls" : "Hide all UI controls (Zen Video View)"}
+      >
+        {isHideAllUI ? (
+          <Eye className="w-3.5 h-3.5 text-gray-300" />
+        ) : (
+          <EyeOff className="w-3.5 h-3.5 text-gray-300" />
+        )}
+      </motion.button>
 
       {/* 2. Sleek Glass Foreground Layer - Removed backdrop-blur overlay to give user flawless crystal clear footage */}
-      <div className={`relative z-10 min-h-screen flex flex-col px-4 py-3 sm:px-6 bg-transparent transition-all duration-500 ${
-        isRunning ? 'justify-center items-center' : 'justify-between'
-      }`}>
-        
-        {/* TOP COMPACT TITLE ROW & AUTHS NAVIGATION - Elegant auto-fade during active focus countdown */}
-        <header className={`w-full max-w-7xl mx-auto flex items-center justify-between gap-4 border-b border-white/10 pb-3 mb-4 transition-all duration-500 ${
-          isRunning ? 'opacity-0 pointer-events-none h-0 p-0 m-0 overflow-hidden border-none' : 'opacity-100'
+      {!isHideAllUI && (
+        <div className={`relative z-10 min-h-screen flex flex-col px-4 py-3 sm:px-6 bg-transparent transition-all duration-500 ${
+          isRunning ? 'justify-center items-center' : 'justify-between'
         }`}>
+          
+          {/* TOP COMPACT TITLE ROW & AUTHS NAVIGATION - Elegant auto-fade during active focus countdown */}
+          <header className={`w-full max-w-7xl mx-auto flex items-center justify-between gap-4 border-b border-white/10 pb-3 mb-4 transition-all duration-500 ${
+            isRunning ? 'opacity-0 pointer-events-none h-0 p-0 m-0 overflow-hidden border-none' : 'opacity-100'
+          }`}>
           <div className="flex items-center gap-3">
             <Sparkle className="w-5 h-5 text-neutral-300 animate-spin" style={{ animationDuration: '6s' }} />
             <div>
@@ -2222,10 +2237,11 @@ export default function App() {
         ) : null}
 
       </div>
+      )}
 
       {/* 5. SETTINGS DRAWER OVERLAY */}
       <AnimatePresence>
-        {isSettingsOpen && (
+        {!isHideAllUI && isSettingsOpen && (
           <>
             <motion.div
               initial={{ opacity: 0 }}
@@ -2758,7 +2774,7 @@ export default function App() {
 
       {/* 6. AUTH DIALOG MODAL BOX */}
       <AnimatePresence>
-        {authMode !== 'none' && (
+        {!isHideAllUI && authMode !== 'none' && (
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
             <motion.div
               initial={{ opacity: 0 }}
@@ -2847,7 +2863,7 @@ export default function App() {
 
       {/* 7. HIGH-CRAFT MOTIVATIONAL SUCCESS QUOTE OVERLAY */}
       <AnimatePresence>
-        {activeQuotePopup && (
+        {!isHideAllUI && activeQuotePopup && (
           <div className="fixed inset-x-0 top-10 z-[100] flex justify-center px-4 pointer-events-none">
             <motion.div
               initial={{ opacity: 0, y: -55, scale: 0.94 }}
@@ -2883,31 +2899,6 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* DRAGGABLE ZEN COMPANION THERAPIST WIDGET */}
-      <CompanionBuddyChat
-        currentTimerMode={activeTimerMode}
-        timeLeft={timeLeft}
-        goalsCompleted={sessionLogs.reduce((acc, curr) => acc + (curr.goalsCompleted || 0), 0)}
-        goals={goals}
-        deadlines={deadlines}
-        studyPlans={studyPlans}
-        reminders={reminders}
-        onAddReminder={handleAddReminder}
-        onTriggerQuotePopup={(q) => {
-          setActiveQuotePopup(q);
-          setTimeout(() => {
-            setActiveQuotePopup(prev => prev === q ? null : prev);
-          }, 12000);
-        }}
-        onToggleSilenceReminders={(silence) => {
-          setAreRemindersSilenced(silence);
-          localStorage.setItem('aesthetic-room:reminders-silenced', String(silence));
-          triggerToast(silence ? 'Automated focus reminders muted.' : 'Automated focus reminders active.');
-        }}
-        areRemindersSilenced={areRemindersSilenced}
-        buddyHistory={buddyHistory}
-        onHistoryChange={setBuddyHistory}
-      />
 
     </div>
   );

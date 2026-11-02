@@ -77,10 +77,11 @@ interface YoutubeEmbedSlotProps {
   vidId: string;
   cleanIds: string[];
   displayName: string;
+  hideLabels?: boolean;
 }
 
 // Dedicated state-retaining YouTube Player node
-const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: YoutubeEmbedSlotProps) => {
+const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName, hideLabels }: YoutubeEmbedSlotProps) => {
   const containerId = `yt-player-slot-${idx}`;
   const wrapperRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
@@ -377,17 +378,20 @@ const YoutubeEmbedSlot = React.memo(({ idx, vidId, cleanIds, displayName }: Yout
       </div>
       
       {/* Node label overlay (sleek absolute positioning) */}
-      <div className="absolute bottom-2 left-2 flex flex-row items-center gap-1.5 z-20 pointer-events-none">
-        <span className="bg-black/85 border border-zinc-800 px-2 py-0.5 rounded text-[9px] font-mono tracking-wider text-neutral-200 uppercase shadow-md select-none">
-          Cam Node {idx + 1}: {displayName}
-        </span>
-      </div>
+      {!hideLabels && (
+        <div className="absolute bottom-2 left-2 flex flex-row items-center gap-1.5 z-20 pointer-events-none">
+          <span className="bg-black/85 border border-zinc-800 px-2 py-0.5 rounded text-[9px] font-mono tracking-wider text-neutral-200 uppercase shadow-md select-none">
+            Cam Node {idx + 1}: {displayName}
+          </span>
+        </div>
+      )}
     </div>
   );
 }, (prevProps, nextProps) => {
   return prevProps.idx === nextProps.idx &&
          prevProps.vidId === nextProps.vidId &&
          prevProps.displayName === nextProps.displayName &&
+         prevProps.hideLabels === nextProps.hideLabels &&
          prevProps.cleanIds.length === nextProps.cleanIds.length &&
          prevProps.cleanIds.every((id, i) => id === nextProps.cleanIds[i]);
 });
@@ -396,9 +400,10 @@ interface BackgroundGridProps {
   gridVideos: string[];
   activeGridCount: number;
   channels: StudyChannel[];
+  hideLabels?: boolean;
 }
 
-const BackgroundGrid = React.memo(({ gridVideos, activeGridCount, channels }: BackgroundGridProps) => {
+const BackgroundGrid = React.memo(({ gridVideos, activeGridCount, channels, hideLabels }: BackgroundGridProps) => {
   return (
     <div 
       className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden bg-slate-950"
@@ -442,6 +447,7 @@ const BackgroundGrid = React.memo(({ gridVideos, activeGridCount, channels }: Ba
                 vidId={vidId}
                 cleanIds={cleanIds}
                 displayName={displayName}
+                hideLabels={hideLabels}
               />
             </div>
           );
@@ -451,6 +457,7 @@ const BackgroundGrid = React.memo(({ gridVideos, activeGridCount, channels }: Ba
   );
 }, (prevProps, nextProps) => {
   return prevProps.activeGridCount === nextProps.activeGridCount &&
+         prevProps.hideLabels === nextProps.hideLabels &&
          JSON.stringify(prevProps.gridVideos) === JSON.stringify(nextProps.gridVideos) &&
          JSON.stringify(prevProps.channels) === JSON.stringify(nextProps.channels);
 });
