@@ -145,11 +145,13 @@ export default function App() {
   // Floating success quotes and therapist configuration
   const [activeQuotePopup, setActiveQuotePopup] = useState<string | null>(null);
   const [areRemindersSilenced, setAreRemindersSilenced] = useState<boolean>(() => {
-    return localStorage.getItem('aesthetic-room:reminders-silenced') === 'true';
+    const saved = localStorage.getItem('aesthetic-room:reminders-silenced');
+    return saved !== null ? saved === 'true' : true; // Default to true (muted)
   });
   const silenceRef = useRef(areRemindersSilenced);
   useEffect(() => {
     silenceRef.current = areRemindersSilenced;
+    localStorage.setItem('aesthetic-room:reminders-silenced', String(areRemindersSilenced));
   }, [areRemindersSilenced]);
 
   // Synchronized background video playback indices map representation
@@ -462,13 +464,13 @@ export default function App() {
     try {
       const saved = localStorage.getItem('aesthetic-room:reminders');
       return saved ? JSON.parse(saved) : [
-        { id: 'rem-1', title: 'Hydration - Drink water', intervalMinutes: 15, isActive: true },
-        { id: 'rem-2', title: 'Postural checkpoint & stretch', intervalMinutes: 30, isActive: true }
+        { id: 'rem-1', title: 'Hydration - Drink water', intervalMinutes: 15, isActive: false },
+        { id: 'rem-2', title: 'Postural checkpoint & stretch', intervalMinutes: 30, isActive: false }
       ];
     } catch {
       return [
-        { id: 'rem-1', title: 'Hydration - Drink water', intervalMinutes: 15, isActive: true },
-        { id: 'rem-2', title: 'Postural checkpoint & stretch', intervalMinutes: 30, isActive: true }
+        { id: 'rem-1', title: 'Hydration - Drink water', intervalMinutes: 15, isActive: false },
+        { id: 'rem-2', title: 'Postural checkpoint & stretch', intervalMinutes: 30, isActive: false }
       ];
     }
   });
